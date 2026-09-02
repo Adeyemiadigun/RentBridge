@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
+using RentBridge.Application.Common.Security;
 using RentBridge.Application.Dtos.Auth;
 using RentBridge.Domain.Common;
 using System;
@@ -29,8 +30,7 @@ namespace RentBridge.Application.Command.Auth
 
             var token = await tokenGenerator.GenerateTokenAsync(user, cancellationToken);
             var refreshToken = tokenGenerator.GenerateRefreshToken();
-
-            var refreshTokenEntity = new RefreshToken(user.Id, refreshToken);
+            var refreshTokenEntity = new RefreshToken(user.Id, TokenHasher.Hash(refreshToken));
 
             if (token == null)
             {

@@ -90,3 +90,4 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
         b.Navigation(l => l.InspectionRequests).IsRequired(false);
     }
 }
+

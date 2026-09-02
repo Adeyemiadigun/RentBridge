@@ -1,4 +1,5 @@
 ﻿using RentBridge.Domain.Common;
+using System.ComponentModel.DataAnnotations.Schema;
 
 public class RefreshToken: Entity<Guid>
 {
@@ -24,7 +25,7 @@ public class RefreshToken: Entity<Guid>
 
 
     }
-
+    [NotMapped]
     public bool IsActive => !Revoked && DateTime.UtcNow < ExpiresAtUtc;
 
     public void Revoke(string? replacedByTokenHash = null)

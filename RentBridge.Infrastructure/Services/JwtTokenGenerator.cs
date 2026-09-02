@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using BCrypt.Net;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Domain.Aggregates.Users;
