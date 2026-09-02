@@ -1,0 +1,13 @@
+﻿using RentBridge.Domain.Common;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace RentBridge.Application.Common.Interfaces.Repositories
+{
+    public interface IUnitOfWork
+    {
+        IGenericRepository<T> Repository<T>() where T : Entity<Guid>;
+        Task<int> SaveChangesAsync(CancellationToken cancellationToken);
+    }
+}

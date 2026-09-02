@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="RentBridge.Api/RentBridge.Api.csproj" />
+  <Project Path="RentBridge.Application/RentBridge.Application.csproj" />
+  <Project Path="RentBridge.Domain/RentBridge.Domain.csproj" />
+  <Project Path="RentBridge.Infrastructure/RentBridge.Infrastructure.csproj" />
+</Solution>
