@@ -48,7 +48,8 @@ namespace RentBridge.Application.Command.Auth
             var newRefreshToken = tokenGenerator.GenerateRefreshToken();
             var newHash = TokenHasher.Hash(newRefreshToken);
 
-            _unitOfWork.Repository<RefreshToken>().Remove(refreshTokenEntity);
+            refreshTokenEntity.Revoke(newHash);
+            _unitOfWork.Repository<RefreshToken>().Update(refreshTokenEntity);
             _unitOfWork.Repository<RefreshToken>().Add(new RefreshToken(user.Id, newHash));
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);

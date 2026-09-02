@@ -25,9 +25,13 @@ namespace RentBridge.Application.Command.Auth
                 return Result.Ok();
             }
 
-            _unitOfWork.Repository<RefreshToken>().Remove(refreshTokenEntity);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Refresh token deleted on logout for user: {UserId}", refreshTokenEntity.UserId);
+            if (!refreshTokenEntity.Revoked)
+            {
+                refreshTokenEntity.Revoke();
+                _unitOfWork.Repository<RefreshToken>().Update(refreshTokenEntity);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Refresh token revoked for user: {UserId}", refreshTokenEntity.UserId);
+            }
 
             return Result.Ok();
         }
