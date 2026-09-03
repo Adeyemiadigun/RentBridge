@@ -19,6 +19,7 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
          .HasConversion<string>()
          .HasMaxLength(30);
 
+
         b.OwnsOne(l => l.Price, p =>
         {
             p.Property(x => x.Amount).HasColumnName("price_amount");

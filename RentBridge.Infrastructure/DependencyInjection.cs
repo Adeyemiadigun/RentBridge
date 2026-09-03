@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddSingleton<IDojahSignatureValidator, DojahSignatureValidator>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IPasswordService,PasswordService>();
+        services.AddScoped<ICurrentUser, CurrentUser>();
 
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 

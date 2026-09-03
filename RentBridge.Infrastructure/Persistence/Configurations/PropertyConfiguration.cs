@@ -12,7 +12,13 @@ public class PropertyConfiguration : IEntityTypeConfiguration<Property>
         b.ToTable("properties");
         b.HasKey(p => p.Id);
 
+        b.Property(p => p.IsVerified)
+         .HasColumnName("is_verified")
+         .HasConversion<bool>();
+
         b.HasIndex(p => p.OwnerUserId);
+
+        b.HasIndex(p => p.IsVerified);
 
         b.OwnsOne(p => p.PropertyAddress, a =>
         {

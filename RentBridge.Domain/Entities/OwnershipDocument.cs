@@ -21,7 +21,7 @@ public class OwnershipDocument
         Id = Guid.NewGuid();
         PropertyId = propertyId;
         FileKey = fileKey;
-        Status = OwnershipDocStatus.Uploaded;
+        Status = OwnershipDocStatus.UnderReview;
         UploadedAt = DateTimeOffset.UtcNow;
     }
 

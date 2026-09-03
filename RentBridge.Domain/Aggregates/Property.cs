@@ -1,8 +1,9 @@
-﻿using RentBridge.Domain.Common;
+﻿using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Aggregates;
 
 public class Property : Entity<Guid>
 {
@@ -11,24 +12,44 @@ public class Property : Entity<Guid>
     private readonly List<OwnershipDocument> _documents = new();
     public IReadOnlyCollection<OwnershipDocument> Documents => _documents;
 
+    public bool IsVerified { get; private set; } = false;
+
     private Property() { }
 
-    public Property(Guid ownerUserId, Address address) : this()
+    public Property(Guid ownerUserId, string street, string city, string area, string state) : this()
     {
         Id = Guid.NewGuid();
         OwnerUserId = ownerUserId;
-        PropertyAddress = address;
+        PropertyAddress = new Address(street, city, area, state);
     }
 
     public void AddDocument(string fileKey)
         => _documents.Add(new OwnershipDocument(Id, fileKey));
 
+    public static readonly UserRole[] CanCreateProperty =
+    { UserRole.Landlord, UserRole.Caretaker, UserRole.Agent };
+
+    public static bool CanCreateBy(UserRole role) => CanCreateProperty.Contains(role);
+
     public Result VerifyDocument(Guid docId)
     {
-        var doc = _documents.First(d => d.Id == docId);
-        doc.Verify();
-        if (_documents.Any(d => d.Status == OwnershipDocStatus.Verified))
-            Raise(new OwnershipVerified(Id));
+        var doc = _documents.FirstOrDefault(d => d.Id == docId);
+
+        if (doc is null) return Result.Fail("Document not found");
+        if (doc.Status != OwnershipDocStatus.UnderReview)
+            return Result.Fail("Document is not under review.");
+        if (doc.Status == OwnershipDocStatus.Verified)
+            return Result.Fail("Document is already verified.");
+        if (doc.Status == OwnershipDocStatus.Rejected)
+            return Result.Fail("Document is rejected.");
+        return doc.Verify();            // flip just this doc to Verified
+    }
+
+    public Result MarkOwnershipVerified()
+    {
+        if (IsVerified) return Result.Ok();
+        IsVerified = true;
+        Raise(new OwnershipVerified(Id));     // the ONE place this event is raised
         return Result.Ok();
     }
 }
