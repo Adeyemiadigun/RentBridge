@@ -12,36 +12,25 @@ namespace RentBridge.Application.Command.Property
     {
         public async Task<Result<Guid>> Handle(CreatePropertyCommand request, CancellationToken cancellationToken)
         {
-            var userId = _currentUser.UserId;
-            if (userId is null)
+            var res = await _currentUser.GetCurrentUser(true, cancellationToken);
+            if (!res.IsSuccess)
             {
-                logger.LogInformation("User not authenticated");
-                return Result<Guid>.Fail("User not Authenticated");
+                return Result<Guid>.Fail(res.Error!);
             }
-                
-            var user = await unitOfWork.Repository<User>().FirstOrDefault(u => u.Id == _currentUser.UserId, cancellationToken);
-            if(user == null)
+
+            var user = res.Value;
+
+            if (!PropertyAggregate.CanCreateBy(user.Role))
             {
-                logger.LogInformation("User not found");
-                return Result<Guid>.Fail("User not found");
-            }
-            if (!user.IdentityVerified)
-            {
-                logger.LogInformation("User identity not verified");
-                return Result<Guid>.Fail("User identity not verified");
-            }
-            
-            if(!PropertyAggregate.CanCreateBy(user.Role))
-            {
-                logger.LogInformation("User is not allowed to create property {UserId}", userId.Value);
+                logger.LogInformation("User is not allowed to create property {UserId}", user.Id);
                 return Result<Guid>.Fail("User is not allowed to create property");
             }
 
-            var property = new PropertyAggregate(userId.Value, request.Street, request.City, request.Area, request.State);
+            var property = new PropertyAggregate(user.Id, request.Street, request.City, request.Area, request.State);
 
             if (request.DocumentUrls.Count > 0)
             {
-                logger.LogInformation("Adding documents to property For User {UserId} with Property {PropertyId}", userId.Value, property.Id);
+                logger.LogInformation("Adding documents to property For User {UserId} with Property {PropertyId}", user.Id, property.Id);
                 request.DocumentUrls.ForEach(item => property.AddDocument(item));
             }
 

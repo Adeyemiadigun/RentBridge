@@ -2,7 +2,7 @@
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Aggregates;
 
 public class Listing : Entity<Guid>
 {

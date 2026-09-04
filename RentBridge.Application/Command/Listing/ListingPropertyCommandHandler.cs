@@ -9,32 +9,20 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using  ListingAggreagte = RentBridge.Domain.Aggregates.Listing;
 
-namespace RentBridge.Application.Command.Property
+namespace RentBridge.Application.Command.Listing
 {
     public class ListingPropertyCommandHandler(IUnitOfWork unitOfWork, ICurrentUser _currentUser, ILogger<ListingPropertyCommandHandler> logger) : IRequestHandler<ListPropertyCommand, Result<Guid>>
     {
         public async Task<Result<Guid>> Handle(ListPropertyCommand request, CancellationToken cancellationToken)
         {
-            var userId = _currentUser.UserId;
-            if (userId is null)
+            var res = await _currentUser.GetCurrentUser(true, cancellationToken);
+            if(!res.IsSuccess)
             {
-                logger.LogInformation("User not authenticated");
-                return Result<Guid>.Fail("User not Authenticated");
+                return Result<Guid>.Fail(res.Error!);
             }
-
-            var user = await unitOfWork.Repository<User>().FirstOrDefault(u => u.Id == _currentUser.UserId, cancellationToken);
-            if (user == null)
-            {
-                logger.LogInformation("User not found");
-                return Result<Guid>.Fail("User not found");
-            }
-            if (!user.IdentityVerified)
-            {
-                logger.LogInformation("User identity not verified");
-                return Result<Guid>.Fail("User identity not verified");
-            }
-
+            var user = res.Value;
             var property = await unitOfWork.Repository<Domain.Aggregates.Property>().FirstOrDefault(p => p.Id == request.PropertyId, cancellationToken);
             if(property == null)
             {
@@ -52,9 +40,9 @@ namespace RentBridge.Application.Command.Property
                 return Result<Guid>.Fail("Property Has not been Verified");
             }
             var money = Money.Naira(request.PriceAmount);
-            var propertyListing = new Listing(userId.Value,property.Id,request.Title,money,request.Description);
+            var propertyListing = new ListingAggreagte(user.Id,property.Id,request.Title,money,request.Description);
 
-             unitOfWork.Repository<Listing>().Add(propertyListing);
+             unitOfWork.Repository<ListingAggreagte>().Add(propertyListing);
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
 

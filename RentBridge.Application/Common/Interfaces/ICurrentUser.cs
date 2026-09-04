@@ -1,4 +1,6 @@
-﻿using System;
+﻿using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Common;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -8,5 +10,6 @@ namespace RentBridge.Application.Common.Interfaces
     {
         Guid? UserId { get; }
         string? Email { get; }
+        Task<Result<User>> GetCurrentUser(bool isIdentityVerified = false, CancellationToken cancellationToken = default);
     }
 }

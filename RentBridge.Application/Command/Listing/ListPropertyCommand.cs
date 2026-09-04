@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace RentBridge.Application.Command.Property
+namespace RentBridge.Application.Command.Listing
 {
     public record class ListPropertyCommand(Guid PropertyId,
     string Title,

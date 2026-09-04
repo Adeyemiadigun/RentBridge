@@ -1,8 +1,9 @@
-﻿using RentBridge.Domain.Common;
+﻿using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Aggregates;
 
 public class KycVerification : Entity<Guid>
 {
