@@ -37,7 +37,17 @@ public class OwnershipDocument
 
     public Result Verify()
     {
+        if (Status != OwnershipDocStatus.UnderReview)
+            return Result.Fail("Only documents under review can be verified.");
         Status = OwnershipDocStatus.Verified;
+        return Result.Ok();
+    }
+
+    public Result Reject()
+    {
+        if (Status != OwnershipDocStatus.UnderReview)
+            return Result.Fail("Only documents under review can be rejected.");
+        Status = OwnershipDocStatus.Rejected;
         return Result.Ok();
     }
 }

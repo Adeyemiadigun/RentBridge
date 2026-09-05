@@ -52,9 +52,19 @@ public void AddDocument(string fileKey)
         return doc.Verify();            // flip just this doc to Verified
     }
 
+    public Result RejectDocument(Guid docId)
+    {
+        var doc = _documents.FirstOrDefault(d => d.Id == docId);
+
+        if (doc is null) return Result.Fail("Document not found");
+        return doc.Reject();
+    }
+
     public Result MarkOwnershipVerified()
     {
         if (IsVerified) return Result.Ok();
+        if (_documents.Any(d => d.Status == OwnershipDocStatus.Rejected))
+            return Result.Fail("Cannot verify property while a document is rejected.");
         IsVerified = true;
         Raise(new OwnershipVerified(Id));     // the ONE place this event is raised
         return Result.Ok();

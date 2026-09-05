@@ -9,13 +9,13 @@ using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
 
 namespace RentBridge.Application.Command.Property;
 
-public class StartDocumentReviewCommandHandler(
+public class RejectDocumentCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     IEmailService emailService,
-    ILogger<StartDocumentReviewCommandHandler> logger) : IRequestHandler<StartDocumentReviewCommand, Result>
+    ILogger<RejectDocumentCommandHandler> logger) : IRequestHandler<RejectDocumentCommand, Result>
 {
-    public async Task<Result> Handle(StartDocumentReviewCommand request, CancellationToken cancellationToken)
+    public async Task<Result> Handle(RejectDocumentCommand request, CancellationToken cancellationToken)
     {
         var res = await currentUser.GetCurrentUser(true);
         if (!res.IsSuccess)
@@ -26,8 +26,8 @@ public class StartDocumentReviewCommandHandler(
 
         if (user.Role is not (UserRole.Lawyer or UserRole.Admin))
         {
-            logger.LogInformation("User {userId} is not authorized to review documents", user.Id);
-            return Result.Fail("Only a lawyer or admin can submit documents for review.");
+            logger.LogInformation("User {userId} is not authorized to reject documents", user.Id);
+            return Result.Fail("Only a lawyer or admin can reject documents.");
         }
 
         var property = await unitOfWork.Repository<PropertyAggregate>().FirstOrDefault(p => p.Id == request.PropertyId, cancellationToken);
@@ -37,11 +37,11 @@ public class StartDocumentReviewCommandHandler(
             return Result.Fail("Property not found");
         }
 
-        var reviewResult = property.StartDocumentReview(request.DocumentId);
-        if (!reviewResult.IsSuccess)
+        var rejectResult = property.RejectDocument(request.DocumentId);
+        if (!rejectResult.IsSuccess)
         {
-            logger.LogInformation("Document {documentId} on property {propertyId} cannot enter review: {error}", request.DocumentId, request.PropertyId, reviewResult.Error);
-            return Result.Fail(reviewResult.Error!);
+            logger.LogInformation("Document {documentId} on property {propertyId} cannot be rejected: {error}", request.DocumentId, request.PropertyId, rejectResult.Error);
+            return Result.Fail(rejectResult.Error!);
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -54,12 +54,17 @@ public class StartDocumentReviewCommandHandler(
                 ? $"<a href=\"{document.FileKey}\">View document</a>"
                 : "Document";
 
-            var subject = "Your property document is under review";
-            var body = $"<h3>Property document under review</h3><p>Hello {owner.FirstName},</p>" +
-                       $"<p>Your property document has been submitted for review by our legal team.</p>" +
+            var reasonText = string.IsNullOrWhiteSpace(request.Reason)
+                ? "Please re-upload a valid ownership document."
+                : $"Reason: {request.Reason}";
+
+            var subject = "Your property document was rejected";
+            var body = $"<h3>Property document rejected</h3><p>Hello {owner.FirstName},</p>" +
+                       $"<p>Unfortunately, your property document was <strong>rejected</strong> by our legal team.</p>" +
                        $"<p>Property ID: <strong>{property.Id}</strong></p>" +
                        $"<p>{documentLink}</p>" +
-                       $"<p>We will notify you once the review is complete.</p>";
+                       $"<p>{reasonText}</p>";
+
             await emailService.SendEmailAsync(owner.Email.Value, subject, body, cancellationToken);
         }
 
