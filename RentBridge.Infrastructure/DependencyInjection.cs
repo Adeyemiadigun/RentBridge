@@ -22,11 +22,12 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(connectionString));
 
-        services.AddSingleton<IDojahSignatureValidator, DojahSignatureValidator>();
+        services.AddSingleton<ISmileSignatureValidator, SmileSignatureValidator>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IPasswordService,PasswordService>();
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddHttpClient<IEmailService, BrevoEmailService>();
+        services.AddHttpClient<IIdentityVerificationService, SmileIdentityService>();
 
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 

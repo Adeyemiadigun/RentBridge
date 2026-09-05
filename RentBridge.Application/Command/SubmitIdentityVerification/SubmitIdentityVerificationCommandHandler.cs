@@ -1,7 +1,10 @@
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using RentBridge.Application.Common;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
+using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Aggregates.Users;
 using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
@@ -42,11 +45,30 @@ public sealed class SubmitIdentityVerificationCommandHandler(
             var kyc = new KycVerification(user.Id, nin.Value);
             _unitOfWork.Repository<KycVerification>().Add(kyc);
 
-            // Kick off the NIN vendor lookup. Result arrives asynchronously via webhook.
-            await verificationService.SubmitNinAsync(nin.Value,request.facialImage, cancellationToken);
+            // Kick off the Smile ID biometric_kyc job (NIN + selfie). The outcome
+            // arrives asynchronously via webhook and is applied to this kyc record.
+            var subject = new VerificationSubject(
+                GivenNames: user.FirstName,
+                LastName: user.LastName,
+                Email: user.Email.Value,
+                PhoneNumber: user.Phone.Value);
+
+            var submitted = await verificationService.SubmitVerificationAsync(
+                kyc.Id,
+                nin.Value,
+                subject,
+                request.facialImage,
+                request.LivenessImages ?? Array.Empty<IFormFile>(),
+                cancellationToken);
+
+            if (submitted.IsSuccess is false)
+            {
+                return Result<Guid>.Fail(submitted.Error);
+            }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Identity verification submitted: {KycId} for user {UserId}", kyc.Id, user.Id);
+            logger.LogInformation("Identity verification submitted: {KycId} for user {UserId} (job {JobId})",
+                kyc.Id, user.Id, submitted.Value);
 
             return Result<Guid>.Ok(kyc.Id);
         }

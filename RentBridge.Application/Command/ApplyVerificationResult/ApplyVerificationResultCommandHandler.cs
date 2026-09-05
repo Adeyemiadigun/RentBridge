@@ -1,7 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Common;
 using RentBridge.Domain.ValueObjects;
 
@@ -28,21 +28,15 @@ public sealed class ApplyVerificationResultCommandHandler(
                 return Result.Fail(result.Error);
             }
 
-            Result apply = request.Kind.ToLowerInvariant() switch
-            {
-                "identity" => kyc.ApplyIdentityResult(result.Value),
-                "facial" => kyc.ApplyFacialResult(result.Value),
-                _ => Result.Fail($"Unknown verification kind: {request.Kind}")
-            };
-
+            var apply = kyc.ApplyResult(result.Value);
             if (apply.IsSuccess is false)
             {
                 return apply;
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Applied {Kind} verification result to {KycId}: passed={Passed}",
-                request.Kind, request.KycVerificationId, request.Passed);
+            logger.LogInformation("Applied verification result to {KycId}: passed={Passed}",
+                request.KycVerificationId, request.Passed);
 
             return Result.Ok();
         }

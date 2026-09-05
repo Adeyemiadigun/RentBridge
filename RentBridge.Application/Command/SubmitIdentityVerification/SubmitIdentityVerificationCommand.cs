@@ -7,5 +7,6 @@ namespace RentBridge.Application.Command.SubmitIdentityVerification;
 public sealed record SubmitIdentityVerificationCommand(
     Guid UserId,
     string Nin,
-    IFormFile facialImage
+    IFormFile facialImage,
+    IFormFile[]? LivenessImages = null
 ) : IRequest<Result<Guid>>;
