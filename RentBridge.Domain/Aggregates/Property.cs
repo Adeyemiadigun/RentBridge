@@ -65,6 +65,8 @@ public void AddDocument(string fileKey)
         if (IsVerified) return Result.Ok();
         if (_documents.Any(d => d.Status == OwnershipDocStatus.Rejected))
             return Result.Fail("Cannot verify property while a document is rejected.");
+        if (_documents.Any(d => d.Status is (OwnershipDocStatus.UnderReview or OwnershipDocStatus.Uploaded)))
+            return Result.Fail("Cannot verify property while a document is under review.");
         IsVerified = true;
         Raise(new OwnershipVerified(Id));     // the ONE place this event is raised
         return Result.Ok();
