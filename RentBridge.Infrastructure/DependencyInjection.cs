@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IPasswordService,PasswordService>();
         services.AddScoped<ICurrentUser, CurrentUser>();
+        services.AddHttpClient<IEmailService, BrevoEmailService>();
 
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 

@@ -27,6 +27,14 @@ public class OwnershipDocument
 
     private OwnershipDocument() { }   // EF
 
+    public Result StartReview()
+    {
+        if (Status != OwnershipDocStatus.Uploaded)
+            return Result.Fail("Only uploaded documents can be submitted for review.");
+        Status = OwnershipDocStatus.UnderReview;
+        return Result.Ok();
+    }
+
     public Result Verify()
     {
         Status = OwnershipDocStatus.Verified;

@@ -23,8 +23,15 @@ public class Property : Entity<Guid>
         PropertyAddress = new Address(street, city, area, state);
     }
 
-    public void AddDocument(string fileKey)
+public void AddDocument(string fileKey)
         => _documents.Add(new OwnershipDocument(Id, fileKey));
+
+    public Result StartDocumentReview(Guid docId)
+    {
+        var doc = _documents.FirstOrDefault(d => d.Id == docId);
+        if (doc is null) return Result.Fail("Document not found");
+        return doc.StartReview();
+    }
 
     public static readonly UserRole[] CanCreateProperty =
     { UserRole.Landlord, UserRole.Caretaker, UserRole.Agent };
