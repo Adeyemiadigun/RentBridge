@@ -58,8 +58,28 @@ public class Lease : Entity<Guid>
     public Result ConfirmInspection()
     {
         if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection to confirm.");
+
+        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        pending?.Confirm();
+
         Status = LeaseStatus.InspectionConfirmed;
         InspectionGatePassed = DateTimeOffset.UtcNow;
+        Raise(new InspectionConfirmed(Id));
+        return Result.Ok();
+    }
+
+    public Result DeclinePendingInspection()
+    {
+        if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection flow to decline.");
+
+        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        if (pending is null) return Result.Fail("No pending inspection request to decline.");
+
+        var result = pending.Decline();
+        if (!result.IsSuccess) return result;
+
+        Status = LeaseStatus.Initiated;
+        Raise(new InspectionDeclined(Id));
         return Result.Ok();
     }
 
@@ -143,6 +163,8 @@ public class Lease : Entity<Guid>
     }
 }
 
+public record InspectionConfirmed(Guid LeaseId) : IDomainEvent;
+public record InspectionDeclined(Guid LeaseId) : IDomainEvent;
 public record LawyerAssigned(Guid LeaseId, Guid LawyerId) : IDomainEvent;
 public record AgreementCertified(Guid LeaseId) : IDomainEvent;
 public record AgreementFullySigned(Guid LeaseId) : IDomainEvent;
