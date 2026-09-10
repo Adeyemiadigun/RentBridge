@@ -7,10 +7,6 @@ public sealed class SubmitIdentityVerificationCommandValidator
 {
     public SubmitIdentityVerificationCommandValidator()
     {
-        RuleFor(x => x.UserId)
-            .NotEmpty()
-            .WithMessage("User id is required.");
-
         RuleFor(x => x.Nin)
             .NotEmpty()
             .WithMessage("NIN is required.")

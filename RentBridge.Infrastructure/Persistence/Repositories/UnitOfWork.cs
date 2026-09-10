@@ -11,11 +11,14 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
     {
         private readonly AppDbContext _context;
         private Hashtable? _repositories;
+        private IListingRepository? _listingRepository;
 
         public UnitOfWork(AppDbContext context)
         {
             _context = context;
         }
+
+        public IListingRepository Listings => _listingRepository ??= new ListingRepository(_context);
 
         public IGenericRepository<T> Repository<T>() where T : Entity<Guid>
         {

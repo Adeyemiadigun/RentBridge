@@ -31,17 +31,9 @@ public class Listing : Entity<Guid>
         CreatedAt = DateTimeOffset.UtcNow;
     }
 
-    public Result MarkPendingVerification()
-    {
-        if (Status != ListingStatus.Draft) return Result.Fail("Only drafts can enter verification");
-        Status = ListingStatus.PendingVerification;
-        Raise(new ListingPendingVerification(Id));
-        return Result.Ok();
-    }
-
     public Result Publish()
     {
-        if (Status != ListingStatus.PendingVerification) return Result.Fail("Must pass verification first");
+        if (Status != ListingStatus.Draft) return Result.Fail("Only drafts can be published");
         Status = ListingStatus.Published;
         PublishedAt = DateTimeOffset.UtcNow;
         Raise(new ListingPublished(Id));
@@ -49,5 +41,4 @@ public class Listing : Entity<Guid>
     }
 }
 
-public record ListingPendingVerification(Guid ListingId) : IDomainEvent;
 public record ListingPublished(Guid ListingId) : IDomainEvent;

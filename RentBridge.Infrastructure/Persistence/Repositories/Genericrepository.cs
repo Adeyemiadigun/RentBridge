@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using RentBridge.Application.Common;
 using RentBridge.Application.Common.Interfaces.Repositories;
 using System;
 using System.Collections.Generic;
@@ -48,6 +49,44 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
             return predicate == null
                 ? await _dbSet.CountAsync(ct)
                 : await _dbSet.CountAsync(predicate, ct);
+        }
+
+        public async Task<PagedResult<T>> GetPagedAsync(
+            Expression<Func<T, bool>>? predicate,
+            int page,
+            int pageSize,
+            Expression<Func<T, object?>>? orderBy = null,
+            bool ascending = true,
+            CancellationToken ct = default,
+            params Expression<Func<T, object?>>[]? includes)
+        {
+            var query = _dbSet.AsNoTracking();
+
+            if (includes is { Length: > 0 })
+            {
+                foreach (var include in includes)
+                {
+                    query = query.Include(include);
+                }
+            }
+
+            if (predicate is not null)
+            {
+                query = query.Where(predicate);
+            }
+
+            if (orderBy is not null)
+            {
+                query = ascending ? query.OrderBy(orderBy) : query.OrderByDescending(orderBy);
+            }
+
+            var totalCount = await query.CountAsync(ct);
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            return new PagedResult<T>(page, pageSize, totalCount, items);
         }
 
         public void Add(T entity)

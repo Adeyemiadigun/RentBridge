@@ -1,0 +1,19 @@
+using RentBridge.Application.Common;
+using RentBridge.Application.Dtos.Listings;
+using RentBridge.Domain.Enums;
+
+namespace RentBridge.Application.Common.Interfaces.Repositories;
+
+public interface IListingRepository
+{
+    Task<PagedResult<ListingSearchItem>> SearchAsync(
+        string? state,
+        string? city,
+        string? area,
+        decimal? minPrice,
+        decimal? maxPrice,
+        ListingStatus? status,
+        int page,
+        int pageSize,
+        CancellationToken ct);
+}

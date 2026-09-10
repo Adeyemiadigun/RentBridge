@@ -1,13 +1,13 @@
-﻿using FluentValidation;
+using FluentValidation;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace RentBridge.Application.Command.Listing
 {
-    public class SubmitListingCommandValidator : AbstractValidator<SubmitListingCommand>
+    public class PublishListingCommandValidator : AbstractValidator<PublishListingCommand>
     {
-        public SubmitListingCommandValidator()
+        public PublishListingCommandValidator()
         {
             RuleFor(x => x.ListingId)
                 .NotEmpty()
