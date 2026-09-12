@@ -13,7 +13,7 @@ using  ListingAggreagte = RentBridge.Domain.Aggregates.Listing;
 
 namespace RentBridge.Application.Command.Listing
 {
-    public class ListingPropertyCommandHandler(IUnitOfWork unitOfWork, ICurrentUser _currentUser, ILogger<ListingPropertyCommandHandler> logger) : IRequestHandler<ListPropertyCommand, Result<Guid>>
+    public class ListPropertyCommandHandler(IUnitOfWork unitOfWork, ICurrentUser _currentUser, ILogger<ListPropertyCommandHandler> logger) : IRequestHandler<ListPropertyCommand, Result<Guid>>
     {
         public async Task<Result<Guid>> Handle(ListPropertyCommand request, CancellationToken cancellationToken)
         {
@@ -39,8 +39,14 @@ namespace RentBridge.Application.Command.Listing
                 logger.LogInformation("Property Has not been Verified");
                 return Result<Guid>.Fail("Property Has not been Verified");
             }
-            var money = Money.Naira(request.PriceAmount);
-            var propertyListing = new ListingAggreagte(user.Id,property.Id,request.Title,money,request.Description);
+            var moneyResult = Money.Naira(request.PriceAmount);
+            if (!moneyResult.IsSuccess)
+            {
+                logger.LogInformation("Invalid listing price: {error}", moneyResult.Error);
+                return Result<Guid>.Fail(moneyResult.Error!);
+            }
+
+            var propertyListing = new ListingAggreagte(user.Id,property.Id,request.Title,moneyResult.Value,request.Description);
 
              unitOfWork.Repository<ListingAggreagte>().Add(propertyListing);
 

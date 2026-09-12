@@ -11,6 +11,7 @@ namespace RentBridge.Application.Command.Property;
 public class VerifyPropertyCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
+    ILawyerAssignmentService lawyerService,
     ILogger<VerifyPropertyCommandHandler> logger) : IRequestHandler<VerifyPropertyCommand, Result>
 {
     public async Task<Result> Handle(VerifyPropertyCommand request, CancellationToken cancellationToken)
@@ -33,6 +34,13 @@ public class VerifyPropertyCommandHandler(
         {
             logger.LogInformation("Property {propertyId} not found", request.PropertyId);
             return Result.Fail("Property not found");
+        }
+
+        var auth = await lawyerService.ResolveAndAuthorizeAsync(property, user, cancellationToken);
+        if (!auth.IsSuccess)
+        {
+            logger.LogInformation("User {userId} is not authorized to verify property {propertyId}: {error}", user.Id, request.PropertyId, auth.Error);
+            return Result.Fail(auth.Error!);
         }
 
         var verifyResult = property.MarkOwnershipVerified();

@@ -1,6 +1,8 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using RentBridge.Application.Common.Behaviors;
+using RentBridge.Application.Common.Interfaces;
+using RentBridge.Application.Services;
 
 namespace RentBridge.Application;
 
@@ -15,6 +17,8 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
+
+        services.AddScoped<ILawyerAssignmentService, LawyerAssignmentService>();
 
         return services;
     }

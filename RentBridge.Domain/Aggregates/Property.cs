@@ -14,6 +14,9 @@ public class Property : Entity<Guid>
 
     public bool IsVerified { get; private set; } = false;
 
+    public Guid? VerificationLawyerId { get; private set; }
+    public DateTimeOffset? VerifiedAt { get; private set; }
+
     private Property() { }
 
     public Property(Guid ownerUserId, string street, string city, string area, string state) : this()
@@ -25,6 +28,19 @@ public class Property : Entity<Guid>
 
 public void AddDocument(string fileKey)
         => _documents.Add(new OwnershipDocument(Id, fileKey));
+
+    public Result AssignVerificationLawyer(Guid lawyerId)
+    {
+        if (IsVerified)
+            return Result.Fail("Cannot change verification lawyer after the property has been verified.");
+        if (VerificationLawyerId == lawyerId)
+            return Result.Ok();
+
+        var previous = VerificationLawyerId;
+        VerificationLawyerId = lawyerId;
+        Raise(new VerificationLawyerAssigned(Id, previous, lawyerId));
+        return Result.Ok();
+    }
 
     public Result StartDocumentReview(Guid docId)
     {
@@ -68,9 +84,11 @@ public void AddDocument(string fileKey)
         if (_documents.Any(d => d.Status is (OwnershipDocStatus.UnderReview or OwnershipDocStatus.Uploaded)))
             return Result.Fail("Cannot verify property while a document is under review.");
         IsVerified = true;
+        VerifiedAt = DateTimeOffset.UtcNow;
         Raise(new OwnershipVerified(Id));     // the ONE place this event is raised
         return Result.Ok();
     }
 }
 
 public record OwnershipVerified(Guid PropertyId) : IDomainEvent;
+public record VerificationLawyerAssigned(Guid PropertyId, Guid? PreviousLawyerId, Guid LawyerId) : IDomainEvent;

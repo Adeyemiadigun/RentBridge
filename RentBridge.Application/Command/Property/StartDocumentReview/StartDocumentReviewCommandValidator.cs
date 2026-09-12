@@ -1,9 +1,9 @@
-﻿using FluentValidation;
+using FluentValidation;
 using RentBridge.Application.Command.Property;
 
-public sealed class VerifyDocCommandValidator : AbstractValidator<VerifyDocumentCommand>
+public sealed class StartDocumentReviewCommandValidator : AbstractValidator<StartDocumentReviewCommand>
 {
-    public VerifyDocCommandValidator()
+    public StartDocumentReviewCommandValidator()
     {
         RuleFor(x => x.DocumentId)
             .NotEmpty()
@@ -16,6 +16,5 @@ public sealed class VerifyDocCommandValidator : AbstractValidator<VerifyDocument
             .WithMessage("Property ID is required.")
             .NotEqual(Guid.Empty)
             .WithMessage("Property ID cannot be an empty GUID.");
-
     }
 }

@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentBridge.Application.Command.SubmitIdentityVerification;
 using RentBridge.Application.Common.Interfaces;
@@ -6,6 +7,7 @@ using RentBridge.Application.Dtos.Kyc;
 
 namespace RentBridge.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/kyc")]
 public sealed class KycController(

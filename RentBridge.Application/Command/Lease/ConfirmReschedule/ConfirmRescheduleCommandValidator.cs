@@ -2,9 +2,9 @@ using FluentValidation;
 
 namespace RentBridge.Application.Command.Lease;
 
-public sealed class ConfirmInspectionCommandValidator : AbstractValidator<ConfirmInspectionCommand>
+public sealed class ConfirmRescheduleCommandValidator : AbstractValidator<ConfirmRescheduleCommand>
 {
-    public ConfirmInspectionCommandValidator()
+    public ConfirmRescheduleCommandValidator()
     {
         RuleFor(x => x.LeaseId)
             .NotEmpty()

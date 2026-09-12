@@ -8,7 +8,7 @@ using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
 
 namespace RentBridge.Application.Command.Property
 {
-    public class CreatePropertyCommandHandler(IUnitOfWork unitOfWork,ICurrentUser _currentUser,ILogger<CreatePropertyCommandHandler> logger) : IRequestHandler<CreatePropertyCommand, Result<Guid>>
+    public class CreatePropertyCommandHandler(IUnitOfWork unitOfWork,ICurrentUser _currentUser,ILawyerAssignmentService lawyerAssignmentService,ILogger<CreatePropertyCommandHandler> logger) : IRequestHandler<CreatePropertyCommand, Result<Guid>>
     {
         public async Task<Result<Guid>> Handle(CreatePropertyCommand request, CancellationToken cancellationToken)
         {
@@ -35,6 +35,16 @@ namespace RentBridge.Application.Command.Property
             }
 
              unitOfWork.Repository<PropertyAggregate>().Add(property);
+
+            var assignment = await lawyerAssignmentService.PickNextVerifiedLawyerAsync(cancellationToken);
+            if (assignment.IsSuccess)
+            {
+                property.AssignVerificationLawyer(assignment.Value);
+            }
+            else
+            {
+                logger.LogInformation("No verified lawyer available; property {PropertyId} queued for manual assignment", property.Id);
+            }
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
 

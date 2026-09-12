@@ -8,13 +8,13 @@ using RentBridge.Domain.Enums;
 
 namespace RentBridge.Application.Command.Lease;
 
-public class ConfirmInspectionCommandHandler(
+public class RejectRescheduleCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
-    ILogger<ConfirmInspectionCommandHandler> logger)
-    : IRequestHandler<ConfirmInspectionCommand, Result>
+    ILogger<RejectRescheduleCommandHandler> logger)
+    : IRequestHandler<RejectRescheduleCommand, Result>
 {
-    public async Task<Result> Handle(ConfirmInspectionCommand request, CancellationToken cancellationToken)
+    public async Task<Result> Handle(RejectRescheduleCommand request, CancellationToken cancellationToken)
     {
         var res = await currentUser.GetCurrentUser(true, cancellationToken);
         if (!res.IsSuccess)
@@ -32,14 +32,14 @@ public class ConfirmInspectionCommandHandler(
 
         if (lease.LandlordUserId != user.Id && user.Role != UserRole.Admin)
         {
-            logger.LogInformation("User {userId} is not authorized to confirm inspection for lease {leaseId}", user.Id, request.LeaseId);
-            return Result.Fail("Only the landlord or an admin can confirm an inspection");
+            logger.LogInformation("User {userId} is not authorized to reject reschedule for lease {leaseId}", user.Id, request.LeaseId);
+            return Result.Fail("Only the landlord or an admin can reject a reschedule");
         }
 
-        var result = lease.ConfirmInspection();
+        var result = lease.RejectReschedule();
         if (!result.IsSuccess)
         {
-            logger.LogInformation("Lease {leaseId} cannot confirm inspection: {error}", request.LeaseId, result.Error);
+            logger.LogInformation("Lease {leaseId} cannot reject reschedule: {error}", request.LeaseId, result.Error);
             return Result.Fail(result.Error!);
         }
 

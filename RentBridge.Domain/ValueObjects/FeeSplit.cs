@@ -1,3 +1,5 @@
+using RentBridge.Domain.Common;
+
 namespace RentBridge.Domain.ValueObjects
 {
     /// <summary>
@@ -19,13 +21,18 @@ namespace RentBridge.Domain.ValueObjects
         }
 
         /// <summary>Creates a split that must sum to the gross amount.</summary>
-        public static FeeSplit Create(Money gross, Money platformCommission, Money legalFeeShare)
+        public static Result<FeeSplit> Create(Money gross, Money platformCommission, Money legalFeeShare)
         {
-            var landlordPayout = gross.Subtract(platformCommission).Subtract(legalFeeShare);
-            if (landlordPayout.Amount < 0)
-                throw new ArgumentException("Commissions plus legal fee exceed the gross amount.");
+            var commission = gross.Subtract(platformCommission);
+            if (!commission.IsSuccess) return Result<FeeSplit>.Fail(commission.Error!);
 
-            return new FeeSplit(platformCommission, legalFeeShare, landlordPayout);
+            var landlordPayout = commission.Value.Subtract(legalFeeShare);
+            if (!landlordPayout.IsSuccess) return Result<FeeSplit>.Fail(landlordPayout.Error!);
+
+            if (landlordPayout.Value.Amount < 0)
+                return Result<FeeSplit>.Fail("Commissions plus legal fee exceed the gross amount.");
+
+            return Result<FeeSplit>.Ok(new FeeSplit(platformCommission, legalFeeShare, landlordPayout.Value));
         }
     }
 }

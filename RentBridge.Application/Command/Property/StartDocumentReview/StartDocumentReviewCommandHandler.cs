@@ -12,6 +12,7 @@ namespace RentBridge.Application.Command.Property;
 public class StartDocumentReviewCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
+    ILawyerAssignmentService lawyerService,
     IEmailService emailService,
     ILogger<StartDocumentReviewCommandHandler> logger) : IRequestHandler<StartDocumentReviewCommand, Result>
 {
@@ -35,6 +36,13 @@ public class StartDocumentReviewCommandHandler(
         {
             logger.LogInformation("Property {propertyId} not found", request.PropertyId);
             return Result.Fail("Property not found");
+        }
+
+        var auth = await lawyerService.ResolveAndAuthorizeAsync(property, user, cancellationToken);
+        if (!auth.IsSuccess)
+        {
+            logger.LogInformation("User {userId} is not authorized to review document {documentId} on property {propertyId}: {error}", user.Id, request.DocumentId, request.PropertyId, auth.Error);
+            return Result.Fail(auth.Error!);
         }
 
         var reviewResult = property.StartDocumentReview(request.DocumentId);

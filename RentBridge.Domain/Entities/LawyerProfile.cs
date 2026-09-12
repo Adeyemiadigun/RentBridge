@@ -12,6 +12,7 @@ public class LawyerProfile
 {
     public string BarNumber { get; private set; }
     public LawyerStatus Status { get; private set; }
+    public DateTimeOffset? LastAssignedAt { get; private set; }
 
     private LawyerProfile() { }   // EF
 
@@ -44,4 +45,6 @@ public class LawyerProfile
         Status = LawyerStatus.Rejected;
         return Result.Ok();
     }
+
+    public void MarkAssigned() => LastAssignedAt = DateTimeOffset.UtcNow;
 }

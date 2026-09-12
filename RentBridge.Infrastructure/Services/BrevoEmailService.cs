@@ -4,7 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-public class BrevoEmailService : IEmailService
+public class BrevoEmailService : IEmailSender
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;

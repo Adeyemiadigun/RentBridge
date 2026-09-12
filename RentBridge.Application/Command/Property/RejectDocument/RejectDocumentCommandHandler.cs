@@ -9,13 +9,14 @@ using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
 
 namespace RentBridge.Application.Command.Property;
 
-public class VerifyDocumentCommandHandler(
+public class RejectDocumentCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
+    ILawyerAssignmentService lawyerService,
     IEmailService emailService,
-    ILogger<VerifyDocumentCommandHandler> logger) : IRequestHandler<VerifyDocumentCommand, Result>
+    ILogger<RejectDocumentCommandHandler> logger) : IRequestHandler<RejectDocumentCommand, Result>
 {
-    public async Task<Result> Handle(VerifyDocumentCommand request, CancellationToken cancellationToken)
+    public async Task<Result> Handle(RejectDocumentCommand request, CancellationToken cancellationToken)
     {
         var res = await currentUser.GetCurrentUser(true);
         if (!res.IsSuccess)
@@ -26,8 +27,8 @@ public class VerifyDocumentCommandHandler(
 
         if (user.Role is not (UserRole.Lawyer or UserRole.Admin))
         {
-            logger.LogInformation("User {userId} is not authorized to verify documents", user.Id);
-            return Result.Fail("Only a lawyer or admin can verify documents.");
+            logger.LogInformation("User {userId} is not authorized to reject documents", user.Id);
+            return Result.Fail("Only a lawyer or admin can reject documents.");
         }
 
         var property = await unitOfWork.Repository<PropertyAggregate>().FirstOrDefault(p => p.Id == request.PropertyId, cancellationToken);
@@ -37,11 +38,18 @@ public class VerifyDocumentCommandHandler(
             return Result.Fail("Property not found");
         }
 
-        var verifyResult = property.VerifyDocument(request.DocumentId);
-        if (!verifyResult.IsSuccess)
+        var auth = await lawyerService.ResolveAndAuthorizeAsync(property, user, cancellationToken);
+        if (!auth.IsSuccess)
         {
-            logger.LogInformation("Document {documentId} on property {propertyId} cannot be verified: {error}", request.DocumentId, request.PropertyId, verifyResult.Error);
-            return Result.Fail(verifyResult.Error!);
+            logger.LogInformation("User {userId} is not authorized to reject document {documentId} on property {propertyId}: {error}", user.Id, request.DocumentId, request.PropertyId, auth.Error);
+            return Result.Fail(auth.Error!);
+        }
+
+        var rejectResult = property.RejectDocument(request.DocumentId);
+        if (!rejectResult.IsSuccess)
+        {
+            logger.LogInformation("Document {documentId} on property {propertyId} cannot be rejected: {error}", request.DocumentId, request.PropertyId, rejectResult.Error);
+            return Result.Fail(rejectResult.Error!);
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -54,11 +62,16 @@ public class VerifyDocumentCommandHandler(
                 ? $"<a href=\"{document.FileKey}\">View document</a>"
                 : "Document";
 
-            var subject = "Your property document has been verified";
-            var body = $"<h3>Property document verified</h3><p>Hello {owner.FirstName},</p>" +
-                       $"<p>Your property document has been <strong>verified</strong> by our legal team.</p>" +
+            var reasonText = string.IsNullOrWhiteSpace(request.Reason)
+                ? "Please re-upload a valid ownership document."
+                : $"Reason: {request.Reason}";
+
+            var subject = "Your property document was rejected";
+            var body = $"<h3>Property document rejected</h3><p>Hello {owner.FirstName},</p>" +
+                       $"<p>Unfortunately, your property document was <strong>rejected</strong> by our legal team.</p>" +
                        $"<p>Property ID: <strong>{property.Id}</strong></p>" +
-                       $"<p>{documentLink}</p>";
+                       $"<p>{documentLink}</p>" +
+                       $"<p>{reasonText}</p>";
 
             await emailService.SendEmailAsync(owner.Email.Value, subject, body, cancellationToken);
         }
