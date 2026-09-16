@@ -2,10 +2,10 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 
 namespace RentBridge.Application.Events.AgreementCertified;
-using AgreementCertifiedEvent = RentBridge.Domain.Aggregates.Users.AgreementCertified;
+using AgreementCertifiedEvent = RentBridge.Domain.Aggregates.AgreementCertified;
 
 public sealed class AgreementCertifiedEventHandler(
     ILogger<AgreementCertifiedEventHandler> logger,

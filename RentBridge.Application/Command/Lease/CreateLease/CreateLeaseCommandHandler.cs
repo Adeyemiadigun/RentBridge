@@ -2,10 +2,10 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
 using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 using ListingAggregate = RentBridge.Domain.Aggregates.Listing;
+using LeaseAggregate = RentBridge.Domain.Aggregates.Lease;
 
 namespace RentBridge.Application.Command.Lease;
 
@@ -44,8 +44,8 @@ public class CreateLeaseCommandHandler(
             return Result<Guid>.Fail("You cannot rent your own listing");
         }
 
-        var lease = new Lease(listing.Id, user.Id, listing.OwnerUserId);
-        unitOfWork.Repository<Lease>().Add(lease);
+        var lease = new LeaseAggregate(listing.Id, user.Id, listing.OwnerUserId);
+        unitOfWork.Repository<LeaseAggregate>().Add(lease);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<Guid>.Ok(lease.Id);

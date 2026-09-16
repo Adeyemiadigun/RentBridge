@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
@@ -75,7 +75,8 @@ public class LawyerAssignmentService(
         return Result<Guid>.Ok(current.Value);
     }
 
-    private async Task<bool> IsAssignedLawyerVerifiedAsync(Guid lawyerId, CancellationToken ct)
+
+  private async Task<bool> IsAssignedLawyerVerifiedAsync(Guid lawyerId, CancellationToken ct)
     {
         var lawyer = await unitOfWork.Repository<User>().FirstOrDefault(u => u.Id == lawyerId, ct);
         return lawyer is { Role: UserRole.Lawyer }

@@ -1,7 +1,7 @@
 ﻿using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Entities;
 
 /// <summary>
 /// Owned child of the User aggregate (1:1, only present for lawyers).

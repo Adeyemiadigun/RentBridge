@@ -15,7 +15,7 @@ namespace RentBridge.Application.Command.Auth
     {
         public async Task<Result<LoginResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
         {
-            var user = await _unitOfWork.Repository<Domain.Aggregates.Users.User>().FirstOrDefault(x => x.Email == request.Email, cancellationToken);
+            var user = await _unitOfWork.Repository<Domain.Aggregates.User>().FirstOrDefault(x => x.Email == request.Email, cancellationToken);
             if (user == null)
             {
                 _logger.LogWarning("Login attempt failed for email: {Email}", request.Email);

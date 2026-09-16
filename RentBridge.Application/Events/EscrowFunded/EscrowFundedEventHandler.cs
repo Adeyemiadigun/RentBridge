@@ -2,10 +2,10 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 
 namespace RentBridge.Application.Events.EscrowFunded;
-using EscrowFundedEvent = RentBridge.Domain.Aggregates.Users.EscrowFunded;
+using EscrowFundedEvent = RentBridge.Domain.Aggregates.EscrowFunded;
 
 public sealed class EscrowFundedEventHandler(
     ILogger<EscrowFundedEventHandler> logger,

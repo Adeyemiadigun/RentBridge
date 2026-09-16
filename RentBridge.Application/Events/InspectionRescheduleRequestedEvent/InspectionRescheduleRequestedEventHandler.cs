@@ -1,19 +1,18 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 
-namespace RentBridge.Application.Events.InspectionRescheduleRequested;
-using InspectionRescheduleRequestedEvent = RentBridge.Domain.Aggregates.Users.InspectionRescheduleRequested;
+namespace RentBridge.Application.Events.InspectionRescheduleRequestedEvent;
+
 
 public sealed class InspectionRescheduleRequestedEventHandler(
     ILogger<InspectionRescheduleRequestedEventHandler> logger,
     IUnitOfWork unitOfWork,
     IEmailService emailService)
-    : INotificationHandler<InspectionRescheduleRequestedEvent>
+    : INotificationHandler<InspectionRescheduleRequested>
 {
-    public async Task Handle(InspectionRescheduleRequestedEvent notification, CancellationToken cancellationToken)
+    public async Task Handle(InspectionRescheduleRequested notification, CancellationToken cancellationToken)
     {
         var lease = await unitOfWork.Repository<Lease>().GetByIdAsync(notification.LeaseId, cancellationToken);
         if (lease is null)

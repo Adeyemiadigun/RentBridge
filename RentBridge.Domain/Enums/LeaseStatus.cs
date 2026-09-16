@@ -4,6 +4,6 @@
 public enum LeaseStatus
 {
     Initiated, InspectionRequested, InspectionConfirmed, LegalReview,
-    Certified, AwaitingSignatures, PartiallySigned, FundedInEscrow,
+    Certified, AwaitingSignatures, PartiallySigned,FullySigned, FundedInEscrow,
     Releasing, Released, Cancelled
 }

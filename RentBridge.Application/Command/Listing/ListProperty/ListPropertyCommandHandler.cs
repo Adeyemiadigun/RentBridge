@@ -2,14 +2,9 @@
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
 using RentBridge.Domain.Common;
 using RentBridge.Domain.ValueObjects;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Text;
-using  ListingAggreagte = RentBridge.Domain.Aggregates.Listing;
+using ListingAggreagte = RentBridge.Domain.Aggregates.Listing;
 
 namespace RentBridge.Application.Command.Listing
 {

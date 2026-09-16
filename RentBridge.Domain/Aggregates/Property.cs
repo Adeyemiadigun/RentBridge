@@ -1,5 +1,5 @@
-﻿using RentBridge.Domain.Aggregates.Users;
-using RentBridge.Domain.Common;
+﻿using RentBridge.Domain.Common;
+using RentBridge.Domain.Entities;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 

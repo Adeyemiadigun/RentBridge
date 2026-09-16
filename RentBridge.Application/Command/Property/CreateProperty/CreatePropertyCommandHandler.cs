@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
 using RentBridge.Domain.Common;
 using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
 

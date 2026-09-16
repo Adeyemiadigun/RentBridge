@@ -65,3 +65,4 @@ public class BrevoEmailService : IEmailSender
             _logger.LogError(ex, "Exception occurred while sending email to {To}", to);
         }
     }
+}

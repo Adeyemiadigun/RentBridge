@@ -4,7 +4,7 @@ using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
 using RentBridge.Application.Common.Security;
 using RentBridge.Application.Dtos.Auth;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Common;
 
 namespace RentBridge.Application.Command.Auth

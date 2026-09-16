@@ -2,11 +2,11 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
 
 namespace RentBridge.Application.Events.OwnershipVerified;
-using OwnershipVerifiedEvent = RentBridge.Domain.Aggregates.Property.OwnershipVerified;
+using OwnershipVerifiedEvent = RentBridge.Domain.Aggregates.OwnershipVerified;
 
 public sealed class OwnershipVerifiedEventHandler(
     ILogger<OwnershipVerifiedEventHandler> logger,

@@ -1,7 +1,9 @@
-﻿namespace RentBridge.Domain.Common
+﻿using MediatR;
+
+namespace RentBridge.Domain.Common
 {
     // Domain/Common/IDomainEvent.cs
-    public interface IDomainEvent { }
+    public interface IDomainEvent:INotification { }
 
 
 }

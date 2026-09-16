@@ -2,7 +2,8 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using LeaseAggregate = RentBridge.Domain.Aggregates.Lease;
+
 using RentBridge.Domain.Common;
 
 namespace RentBridge.Application.Command.Lease;
@@ -22,7 +23,7 @@ public class CancelInspectionCommandHandler(
         }
         var user = res.Value;
 
-        var lease = await unitOfWork.Repository<Lease>().GetByIdAsync(request.LeaseId, cancellationToken);
+        var lease = await unitOfWork.Repository<LeaseAggregate>().GetByIdAsync(request.LeaseId, cancellationToken);
         if (lease is null)
         {
             logger.LogInformation("Lease {leaseId} not found", request.LeaseId);

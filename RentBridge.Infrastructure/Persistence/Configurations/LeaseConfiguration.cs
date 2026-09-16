@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Enums;
 
 namespace RentBridge.Infrastructure.Persistence.Configurations;
@@ -67,13 +67,23 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
 
             p.OwnsOne(x => x.Split, s =>
             {
-                s.Property(v => v.PlatformCommission)
-                 .HasColumnName("platform_commission").HasPrecision(18, 2);
-                s.Property(v => v.LegalFeeShare)
-                 .HasColumnName("legal_fee_share").HasPrecision(18, 2);
-                s.Property(v => v.LandlordPayout)
-                 .HasColumnName("landlord_payout").HasPrecision(18, 2);
+                s.OwnsOne(v => v.PlatformCommission, m =>
+                {
+                    m.Property(x => x.Amount).HasColumnName("platform_commission").HasPrecision(18, 2);
+                    m.Property(x => x.Currency).HasColumnName("platform_commission_currency");
+                });
+                s.OwnsOne(v => v.LegalFeeShare, m =>
+                {
+                    m.Property(x => x.Amount).HasColumnName("legal_fee_share").HasPrecision(18, 2);
+                    m.Property(x => x.Currency).HasColumnName("legal_fee_share_currency");
+                });
+                s.OwnsOne(v => v.LandlordPayout, m =>
+                {
+                    m.Property(x => x.Amount).HasColumnName("landlord_payout").HasPrecision(18, 2);
+                    m.Property(x => x.Currency).HasColumnName("landlord_payout_currency");
+                });
             });
+            p.Navigation(x => x.Split).IsRequired(true);
         });
 
         // inspection requests — owned children, separate table
@@ -87,7 +97,6 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
 
             r.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
         });
-        b.Navigation(l => l.InspectionRequests).IsRequired(false);
     }
 }
 

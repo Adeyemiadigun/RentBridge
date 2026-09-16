@@ -2,7 +2,7 @@ using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Aggregates;
 
 /// <summary>
 /// Owned by the Lease aggregate. Enforces the business rule that a

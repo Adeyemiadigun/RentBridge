@@ -2,7 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 using PropertyAggregate = RentBridge.Domain.Aggregates.Property;

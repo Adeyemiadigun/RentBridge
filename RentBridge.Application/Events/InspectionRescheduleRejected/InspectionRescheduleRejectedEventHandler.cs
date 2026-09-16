@@ -2,10 +2,10 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 
 namespace RentBridge.Application.Events.InspectionRescheduleRejected;
-using InspectionRescheduleRejectedEvent = RentBridge.Domain.Aggregates.Users.InspectionRescheduleRejected;
+using InspectionRescheduleRejectedEvent = RentBridge.Domain.Aggregates.InspectionRescheduleRejected;
 
 public sealed class InspectionRescheduleRejectedEventHandler(
     ILogger<InspectionRescheduleRejectedEventHandler> logger,

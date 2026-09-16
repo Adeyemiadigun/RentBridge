@@ -1,12 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
 
 namespace RentBridge.Application.Events.VerificationLawyerAssigned;
-using VerificationLawyerAssignedEvent = RentBridge.Domain.Aggregates.Property.VerificationLawyerAssigned;
+using VerificationLawyerAssignedEvent = RentBridge.Domain.Aggregates.VerificationLawyerAssigned;
 
 public sealed class VerificationLawyerAssignedEventHandler(
     ILogger<VerificationLawyerAssignedEventHandler> logger,

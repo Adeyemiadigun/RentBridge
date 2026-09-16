@@ -1,19 +1,17 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 
-namespace RentBridge.Application.Events.LeaseCreated;
-using LeaseCreatedEvent = RentBridge.Domain.Aggregates.Users.LeaseCreated;
+namespace RentBridge.Application.Events.LeaseCreatedEvent;
 
 public sealed class LeaseCreatedEventHandler(
     ILogger<LeaseCreatedEventHandler> logger,
     IUnitOfWork unitOfWork,
     IEmailService emailService)
-    : INotificationHandler<LeaseCreatedEvent>
+    : INotificationHandler<LeaseCreated>
 {
-    public async Task Handle(LeaseCreatedEvent notification, CancellationToken cancellationToken)
+    public async Task Handle(LeaseCreated notification, CancellationToken cancellationToken)
     {
         var lease = await unitOfWork.Repository<Lease>().GetByIdAsync(notification.LeaseId, cancellationToken);
         if (lease is null)

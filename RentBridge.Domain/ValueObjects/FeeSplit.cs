@@ -9,9 +9,11 @@ namespace RentBridge.Domain.ValueObjects
     /// </summary>
     public sealed record FeeSplit
     {
-        public Money PlatformCommission { get; }
-        public Money LegalFeeShare { get; }
-        public Money LandlordPayout { get; }
+        public Money PlatformCommission { get; private set; }
+        public Money LegalFeeShare { get; private set; }
+        public Money LandlordPayout { get; private set; }
+
+        private FeeSplit() { } // EF
 
         private FeeSplit(Money platformCommission, Money legalFeeShare, Money landlordPayout)
         {

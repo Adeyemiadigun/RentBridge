@@ -2,11 +2,11 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using ListingAggregate = RentBridge.Domain.Aggregates.Listing;
 
 namespace RentBridge.Application.Events.ListingPublished;
-using ListingPublishedEvent = RentBridge.Domain.Aggregates.Listing.ListingPublished;
+using ListingPublishedEvent = RentBridge.Domain.Aggregates.ListingPublished;
 
 public sealed class ListingPublishedEventHandler(
     ILogger<ListingPublishedEventHandler> logger,

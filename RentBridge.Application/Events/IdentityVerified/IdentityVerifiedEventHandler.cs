@@ -1,10 +1,10 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 
 namespace RentBridge.Application.Events.IdentityVerified;
-using IdentityVerificationEvent = RentBridge.Domain.Aggregates.Users.IdentityVerified;
+using IdentityVerificationEvent = RentBridge.Domain.Aggregates.IdentityVerified;
 
 public sealed class IdentityVerifiedEventHandler(
     ILogger<IdentityVerifiedEventHandler> logger,

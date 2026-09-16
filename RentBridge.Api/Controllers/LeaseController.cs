@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentBridge.Api.Dtos;
 using RentBridge.Application.Command.Lease;
+using RentBridge.Application.Query.Lease;
 
 namespace RentBridge.Api.Controllers;
 
@@ -156,5 +157,72 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         }
 
         return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// The tenant, landlord, lawyer, or an admin moves the lease into legal
+    /// review. If no lawyer was auto-assigned at inspection-confirm time, one is
+    /// picked lazily before the transition.
+    /// </summary>
+    [HttpPost("{leaseId:guid}/legal-review")]
+    public async Task<IActionResult> BeginLegalReview(Guid leaseId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new BeginLegalReviewCommand(leaseId), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// The assigned lawyer certifies the agreement (LegalReview → Certified).
+    /// Raises AgreementCertified.
+    /// </summary>
+    [HttpPost("{leaseId:guid}/certify")]
+    public async Task<IActionResult> CertifyAgreement(Guid leaseId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new CertifyAgreementCommand(leaseId), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// The tenant or landlord signs the agreement (Certified → PartiallySigned /
+    /// FullySigned). Raises AgreementFullySigned once both parties have signed.
+    /// </summary>
+    [HttpPost("{leaseId:guid}/sign")]
+    public async Task<IActionResult> SignAgreement(Guid leaseId, [FromBody] SignAgreementRequest? request, CancellationToken ct)
+    {
+        var command = new SignAgreementCommand(leaseId, request?.SignatureImage);
+        var result = await mediator.Send(command, ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// Returns lease detail (status, agreement certification and signature
+    /// state, escrow payment trail). Accessible to the landlord, tenant,
+    /// assigned lawyer, or an admin.
+    /// </summary>
+    [HttpGet("{leaseId:guid}")]
+    public async Task<IActionResult> Get(Guid leaseId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetLeaseQuery(leaseId), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
     }
 }

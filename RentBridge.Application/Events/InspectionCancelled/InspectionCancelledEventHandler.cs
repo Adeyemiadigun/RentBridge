@@ -2,10 +2,10 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 
 namespace RentBridge.Application.Events.InspectionCancelled;
-using InspectionCancelledEvent = RentBridge.Domain.Aggregates.Users.InspectionCancelled;
+using InspectionCancelledEvent = RentBridge.Domain.Aggregates.InspectionCancelled;
 
 public sealed class InspectionCancelledEventHandler(
     ILogger<InspectionCancelledEventHandler> logger,

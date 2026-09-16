@@ -1,11 +1,10 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 
 namespace RentBridge.Application.Events.LawyerAssigned;
-using LawyerAssignedEvent = RentBridge.Domain.Aggregates.Users.LawyerAssigned;
+using LawyerAssignedEvent = RentBridge.Domain.Aggregates.LawyerAssigned;
 
 public sealed class LawyerAssignedEventHandler(
     ILogger<LawyerAssignedEventHandler> logger,

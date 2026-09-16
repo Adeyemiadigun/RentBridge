@@ -2,10 +2,10 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 
 namespace RentBridge.Application.Events.InspectionRequested;
-using InspectionRequestedEvent = RentBridge.Domain.Aggregates.Users.InspectionRequested;
+using InspectionRequestedEvent = RentBridge.Domain.Aggregates.InspectionRequested;
 
 public sealed class InspectionRequestedEventHandler(
     ILogger<InspectionRequestedEventHandler> logger,

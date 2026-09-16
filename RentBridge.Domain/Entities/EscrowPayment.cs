@@ -2,7 +2,7 @@
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Entities;
 
 /// <summary>
 /// Owned child entity of the Lease aggregate. Not an aggregate root —

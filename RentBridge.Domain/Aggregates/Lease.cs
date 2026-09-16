@@ -1,8 +1,9 @@
 ﻿using RentBridge.Domain.Common;
+using RentBridge.Domain.Entities;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Aggregates;
 
 public class Lease : Entity<Guid>
 {
@@ -163,6 +164,14 @@ public class Lease : Entity<Guid>
         return Result.Ok();
     }
 
+    public Result BeginLegalReview()
+    {
+        if (Status == LeaseStatus.LegalReview) return Result.Ok();
+        if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("Inspection must be confirmed before legal review.");
+        Status = LeaseStatus.LegalReview;
+        return Result.Ok();
+    }
+
     public Result RecordIdentityGate()
     {
         if (IdentityGatePassed is not null) return Result.Fail("Identity gate already recorded.");
@@ -192,7 +201,7 @@ public class Lease : Entity<Guid>
         if (!result.IsSuccess) return result;
 
         Status = Agreement.IsFullySigned
-            ? LeaseStatus.AwaitingSignatures
+            ? LeaseStatus.FullySigned
             : LeaseStatus.PartiallySigned;
 
         if (Agreement.IsFullySigned)

@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Common;
 using RentBridge.Infrastructure.Persistence.Repositories;
 using System;
@@ -19,7 +19,7 @@ namespace RentBridge.Infrastructure.Services
         {
             get
             {
-                var idString = _httpContext?.User?.FindFirst(ClaimTypes.NameIdentifier).Value;
+                var idString = _httpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
                 return Guid.TryParse(idString, out var userId) ? userId : null;
             }
