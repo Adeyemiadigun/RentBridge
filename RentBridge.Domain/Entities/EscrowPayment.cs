@@ -20,6 +20,7 @@ public class EscrowPayment
     public Guid IdempotencyKey { get; private set; }
     public EscrowStatus Status { get; private set; }
     public string? CheckoutUrl { get; private set; }
+    public string? PayoutReference { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
     private EscrowPayment() { }
@@ -75,6 +76,13 @@ public class EscrowPayment
     public Result MarkFailed()
     {
         Status = EscrowStatus.Failed;
+        return Result.Ok();
+    }
+
+    public Result AttachPayoutReference(string providerReference)
+    {
+        if (string.IsNullOrWhiteSpace(providerReference)) return Result.Fail("Payout reference cannot be empty.");
+        PayoutReference = providerReference;
         return Result.Ok();
     }
 }

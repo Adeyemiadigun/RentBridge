@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
+using RentBridge.Application.Common.Payments;
 using RentBridge.Infrastructure.Persistence;
 using RentBridge.Infrastructure.Persistence.Repositories;
 using RentBridge.Infrastructure.Services;
@@ -32,6 +33,9 @@ public static class DependencyInjection
         services.AddHttpClient<IIdentityVerificationService, SmileIdentityService>();
 
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+        services.AddScoped<IAgreementPdfRenderer, AgreementPdfRenderer>();
+
+        services.AddHttpClient<IEscrowProvider, PaystackEscrowProvider>();
 
         return services;
     }

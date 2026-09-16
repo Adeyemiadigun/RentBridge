@@ -12,6 +12,7 @@ public sealed class CertifyAgreementCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     ILawyerAssignmentService lawyerService,
+    IAgreementDocumentService agreementService,
     ILogger<CertifyAgreementCommandHandler> logger)
     : IRequestHandler<CertifyAgreementCommand, Result>
 {
@@ -36,6 +37,13 @@ public sealed class CertifyAgreementCommandHandler(
         {
             logger.LogInformation("Lease {LeaseId} not found", request.LeaseId);
             return Result.Fail("Lease not found");
+        }
+
+        var composed = await agreementService.EnsureComposedAsync(lease, cancellationToken);
+        if (!composed.IsSuccess)
+        {
+            logger.LogWarning("Cannot compose agreement for lease {LeaseId}: {Error}", request.LeaseId, composed.Error);
+            return Result.Fail(composed.Error!);
         }
 
         if (lease.AssignedLawyerId is null)

@@ -107,6 +107,11 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("InspectionGatePassed")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("LandlordPayoutRecipientCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("landlord_payout_recipient_code");
+
                     b.Property<Guid>("LandlordUserId")
                         .HasColumnType("uuid");
 
@@ -181,6 +186,31 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("listings", (string)null);
+                });
+
+            modelBuilder.Entity("RentBridge.Domain.Aggregates.PlatformSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("LegalFeeRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("legal_fee_rate");
+
+                    b.Property<decimal>("PlatformCommissionRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("platform_commission_rate");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("platform_settings", (string)null);
                 });
 
             modelBuilder.Entity("RentBridge.Domain.Aggregates.Property", b =>
@@ -333,6 +363,45 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("LeaseId");
 
+                            b1.OwnsOne("RentBridge.Domain.Aggregates.AgreementDocument", "Document", b2 =>
+                                {
+                                    b2.Property<Guid>("Id")
+                                        .ValueGeneratedOnAdd()
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<Guid>("AgreementId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<string>("ContentHash")
+                                        .IsRequired()
+                                        .HasMaxLength(128)
+                                        .HasColumnType("character varying(128)")
+                                        .HasColumnName("content_hash");
+
+                                    b2.Property<DateTimeOffset>("DraftedAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("drafted_at");
+
+                                    b2.Property<string>("TermsJson")
+                                        .IsRequired()
+                                        .HasColumnType("text")
+                                        .HasColumnName("terms_json");
+
+                                    b2.Property<int>("Version")
+                                        .HasColumnType("integer")
+                                        .HasColumnName("version");
+
+                                    b2.HasKey("Id");
+
+                                    b2.HasIndex("AgreementId")
+                                        .IsUnique();
+
+                                    b2.ToTable("agreement_documents", (string)null);
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("AgreementId");
+                                });
+
                             b1.OwnsMany("RentBridge.Domain.ValueObjects.SignatureRecord", "Signatures", b2 =>
                                 {
                                     b2.Property<Guid>("AgreementId")
@@ -371,6 +440,8 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                                         .HasForeignKey("AgreementId");
                                 });
 
+                            b1.Navigation("Document");
+
                             b1.Navigation("Signatures");
                         });
 
@@ -391,6 +462,11 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
 
                             b1.Property<Guid>("LeaseId")
                                 .HasColumnType("uuid");
+
+                            b1.Property<string>("PayoutReference")
+                                .HasMaxLength(100)
+                                .HasColumnType("character varying(100)")
+                                .HasColumnName("payout_reference");
 
                             b1.Property<string>("Reference")
                                 .IsRequired()

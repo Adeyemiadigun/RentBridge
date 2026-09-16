@@ -21,6 +21,8 @@ public class Lease : Entity<Guid>
 
     public Agreement Agreement { get; private set; }   // owned entity
 
+    public string? LandlordPayoutRecipientCode { get; private set; }
+
     private readonly List<EscrowPayment> _escrowPayments = new();
     public IReadOnlyCollection<EscrowPayment> EscrowPayments => _escrowPayments;
 
@@ -223,9 +225,22 @@ public class Lease : Entity<Guid>
         return Result.Ok();
     }
 
-    public Result MarkReleasing()
+    public Result SetLandlordPayoutRecipientCode(string recipientCode)
+    {
+        if (Status is LeaseStatus.Released or LeaseStatus.Releasing)
+            return Result.Fail("Payout recipient cannot change once escrow is releasing or released.");
+        if (string.IsNullOrWhiteSpace(recipientCode))
+            return Result.Fail("Recipient code cannot be empty.");
+
+        LandlordPayoutRecipientCode = recipientCode.Trim();
+        return Result.Ok();
+    }
+
+    public Result BeginRelease()
     {
         if (Status != LeaseStatus.FundedInEscrow) return Result.Fail("Must be funded to release.");
+        if (string.IsNullOrWhiteSpace(LandlordPayoutRecipientCode))
+            return Result.Fail("Landlord payout recipient is not set for this lease.");
         Status = LeaseStatus.Releasing;
         return Result.Ok();
     }

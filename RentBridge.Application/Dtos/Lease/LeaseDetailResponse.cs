@@ -11,6 +11,7 @@ public sealed record LeaseDetailResponse(
     LeaseStatus Status,
     DateTimeOffset CreatedAt,
     AgreementDetail Agreement,
+    AgreementDocumentItem? AgreementDocument,
     IReadOnlyList<EscrowPaymentItem> EscrowPayments);
 
 public sealed record AgreementDetail(
@@ -19,6 +20,8 @@ public sealed record AgreementDetail(
     DateTimeOffset? CertifiedAt,
     bool IsFullySigned,
     IReadOnlyList<SignatureItem> Signatures);
+
+public sealed record AgreementDocumentItem(int Version, string ContentHash, DateTimeOffset DraftedAt);
 
 public sealed record SignatureItem(LeaseParty Party, DateTimeOffset SignedAt);
 

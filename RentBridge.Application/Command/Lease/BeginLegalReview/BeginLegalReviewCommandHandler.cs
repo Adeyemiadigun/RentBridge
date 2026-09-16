@@ -11,6 +11,7 @@ public sealed class BeginLegalReviewCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     ILawyerAssignmentService lawyerService,
+    IAgreementDocumentService agreementService,
     ILogger<BeginLegalReviewCommandHandler> logger)
     : IRequestHandler<BeginLegalReviewCommand, Result>
 {
@@ -37,6 +38,13 @@ public sealed class BeginLegalReviewCommandHandler(
         {
             logger.LogInformation("User {UserId} is not a party to lease {LeaseId}", user.Id, request.LeaseId);
             return Result.Fail("Only the tenant, landlord, lawyer, or admin can begin legal review.");
+        }
+
+        var composed = await agreementService.EnsureComposedAsync(lease, cancellationToken);
+        if (!composed.IsSuccess)
+        {
+            logger.LogWarning("Cannot compose agreement for lease {LeaseId}: {Error}", request.LeaseId, composed.Error);
+            return Result.Fail(composed.Error!);
         }
 
         if (lease.AssignedLawyerId is null)

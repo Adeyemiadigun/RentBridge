@@ -57,6 +57,12 @@ public sealed class GetLeaseQueryHandler(
                 lease.Agreement.Signatures
                     .Select(s => new SignatureItem(s.Party, s.SignedAt))
                     .ToList()),
+            lease.Agreement.Document is null
+                ? null
+                : new AgreementDocumentItem(
+                    lease.Agreement.Document.Version,
+                    lease.Agreement.Document.ContentHash,
+                    lease.Agreement.Document.DraftedAt),
             lease.EscrowPayments
                 .Select(p => new EscrowPaymentItem(
                     p.Id,

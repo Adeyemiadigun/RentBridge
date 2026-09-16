@@ -16,6 +16,10 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
         b.HasIndex(l => l.LandlordUserId);
         b.HasIndex(l => l.ListingId);
 
+        b.Property(l => l.LandlordPayoutRecipientCode)
+            .HasColumnName("landlord_payout_recipient_code")
+            .HasMaxLength(100);
+
         b.Property<uint>("Version")
          .HasColumnType("xid")
          .IsRowVersion();
@@ -45,6 +49,19 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
                 s.Property(x => x.SignedAt).HasColumnName("signed_at");
                 s.Property(x => x.IpAddress).HasColumnName("ip_address");
             });
+
+            // agreement document — canonical terms snapshot, separate table
+            a.OwnsOne(x => x.Document, d =>
+            {
+                d.ToTable("agreement_documents");
+                d.WithOwner().HasForeignKey("AgreementId");
+                d.HasKey(d => d.Id);
+
+                d.Property(x => x.Version).HasColumnName("version");
+                d.Property(x => x.TermsJson).HasColumnName("terms_json").HasColumnType("text").IsRequired();
+                d.Property(x => x.ContentHash).HasColumnName("content_hash").HasMaxLength(128).IsRequired();
+                d.Property(x => x.DraftedAt).HasColumnName("drafted_at");
+            });
         });
 
         // escrow payments — separate owned table
@@ -56,6 +73,8 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
 
             p.HasIndex(p => p.Reference).IsUnique();
             p.HasIndex(p => new { p.UserId, p.IdempotencyKey }).IsUnique();
+
+            p.Property(x => x.PayoutReference).HasColumnName("payout_reference").HasMaxLength(100);
 
             p.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
 

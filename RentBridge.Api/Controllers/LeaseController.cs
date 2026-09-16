@@ -210,6 +210,89 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Returns the canonical tenancy agreement content (terms + pinned hash +
+    /// certification/signature status). Composes the draft lazily on first view.
+    /// </summary>
+    [HttpGet("{leaseId:guid}/agreement")]
+    public async Task<IActionResult> GetAgreement(Guid leaseId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetLeaseAgreementQuery(leaseId), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Returns the read-only rendered PDF of the agreement (terms + certified-by
+    /// and signature blocks + audit trail).
+    /// </summary>
+    [HttpGet("{leaseId:guid}/agreement/pdf")]
+    public async Task<IActionResult> GetAgreementPdf(Guid leaseId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetLeaseAgreementPdfQuery(leaseId), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        var pdf = result.Value;
+        return File(pdf, "application/pdf", $"agreement-{leaseId}.pdf");
+    }
+
+    /// <summary>
+    /// The tenant funds escrow for a fully-signed lease. Returns the provider
+    /// checkout URL. Idempotent: re-calling returns the same checkout.
+    /// </summary>
+    [HttpPost("{leaseId:guid}/escrow/fund")]
+    public async Task<IActionResult> FundEscrow(Guid leaseId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new FundEscrowCommand(leaseId), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// The landlord or an admin releases funded escrow to the landlord, net of
+    /// platform commission and the lawyer's legal-fee share. Idempotent.
+    /// </summary>
+    [HttpPost("{leaseId:guid}/escrow/release")]
+    public async Task<IActionResult> ReleaseEscrow(Guid leaseId, [FromBody] ReleaseEscrowRequest? request, CancellationToken ct)
+    {
+        var result = await mediator.Send(
+            new ReleaseEscrowCommand(leaseId, request?.RecipientCode),
+            ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { released = true });
+    }
+
+    /// <summary>
+    /// The landlord stores the Paystack recipient code that receives the
+    /// escrow payout for this lease.
+    /// </summary>
+    [HttpPut("{leaseId:guid}/escrow/payout-recipient")]
+    public async Task<IActionResult> SetPayoutRecipient(Guid leaseId, [FromBody] SetPayoutRecipientRequest request, CancellationToken ct)
+    {
+        var result = await mediator.Send(new SetPayoutRecipientCommand(leaseId, request.RecipientCode), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
     /// Returns lease detail (status, agreement certification and signature
     /// state, escrow payment trail). Accessible to the landlord, tenant,
     /// assigned lawyer, or an admin.
