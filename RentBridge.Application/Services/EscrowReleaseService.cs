@@ -21,6 +21,7 @@ public sealed class EscrowReleaseService(
     IEscrowProvider escrowProvider,
     IEmailService emailService,
     IBackgroundJobDispatcher backgroundJobs,
+    ILedgerService ledgerService,
     ILogger<EscrowReleaseService> logger) : IEscrowReleaseService
 {
     private const int MaxAutoAttempts = 2;
@@ -287,6 +288,9 @@ public sealed class EscrowReleaseService(
         {
             logger.LogWarning("Could not mark payment {Reference} payout-failed: {Error}", payment.Reference, failed.Error);
         }
+
+        // Ledger line is staged with the state change and committed in the same save.
+        await ledgerService.RecordPayoutFailureAsync(lease, payment, cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

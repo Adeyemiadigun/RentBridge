@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using RentBridge.Application.Command.ApplyVerificationResult;
@@ -7,6 +8,7 @@ using RentBridge.Infrastructure.Verification;
 namespace RentBridge.Api.Controllers;
 
 [ApiController]
+[ApiVersionNeutral]
 [Route("api/webhooks/smile")]
 public class SmileWebhookController(
     IMediator mediator,

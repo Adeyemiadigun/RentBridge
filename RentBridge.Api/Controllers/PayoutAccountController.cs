@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +15,8 @@ namespace RentBridge.Api.Controllers;
 /// </summary>
 [Authorize]
 [ApiController]
-[Route("api/payout-account")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/payout-account")]
 public sealed class PayoutAccountController(IMediator mediator) : ControllerBase
 {
     /// <summary>Lists the banks available for payout.</summary>

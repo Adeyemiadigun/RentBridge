@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,8 @@ namespace RentBridge.Api.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/kyc")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/kyc")]
 public sealed class KycController(
     IMediator mediator,
     ICurrentUser currentUser,

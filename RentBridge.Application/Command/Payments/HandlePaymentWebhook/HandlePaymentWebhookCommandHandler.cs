@@ -14,6 +14,7 @@ public sealed class HandlePaymentWebhookCommandHandler(
     IUnitOfWork unitOfWork,
     IEscrowProvider escrowProvider,
     IEscrowReleaseService releaseService,
+    ILedgerService ledgerService,
     ILogger<HandlePaymentWebhookCommandHandler> logger)
     : IRequestHandler<HandlePaymentWebhookCommand, Result>
 {
@@ -80,6 +81,9 @@ public sealed class HandlePaymentWebhookCommandHandler(
             logger.LogWarning("Cannot mark payment {Reference} funded: {Error}", notification.Reference, funded.Error);
             return Result.Fail(funded.Error!);
         }
+
+        // Ledger line is staged with the state change and committed in the same save.
+        await ledgerService.RecordFundingAsync(lease, payment, cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         logger.LogInformation("Escrow payment {Reference} confirmed paid", notification.Reference);

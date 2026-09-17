@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ namespace RentBridge.Api.Controllers;
 /// status on the lease.
 /// </summary>
 [ApiController]
+[ApiVersionNeutral]
 [Route("api/payments/paystack/webhook")]
 public sealed class PaymentsController(
     IMediator mediator,

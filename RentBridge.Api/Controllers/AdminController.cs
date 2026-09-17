@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +14,8 @@ namespace RentBridge.Api.Controllers;
 /// </summary>
 [Authorize]
 [ApiController]
-[Route("api/admin")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/admin")]
 public sealed class AdminController(IMediator mediator) : ControllerBase
 {
     /// <summary>
@@ -30,6 +32,37 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         }
 
         return Ok(new { userId = result.Value, verified = true });
+    }
+
+    /// <summary>
+    /// Suspends a lawyer so they are no longer auto-assignable to property
+    /// reviews and lease legal review. A suspended lawyer can be re-verified.
+    /// </summary>
+    [HttpPost("users/{userId:guid}/suspend-lawyer")]
+    public async Task<IActionResult> SuspendLawyer(Guid userId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new SuspendLawyerCommand(userId), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { userId = result.Value, suspended = true });
+    }
+
+    /// <summary>
+    /// Rejects a pending lawyer application. Rejection is terminal.
+    /// </summary>
+    [HttpPost("users/{userId:guid}/reject-lawyer")]
+    public async Task<IActionResult> RejectLawyer(Guid userId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new RejectLawyerCommand(userId), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { userId = result.Value, rejected = true });
     }
 
     /// <summary>

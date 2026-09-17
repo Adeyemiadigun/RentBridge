@@ -33,10 +33,38 @@ public class Listing : Entity<Guid>
 
     public Result Publish()
     {
-        if (Status != ListingStatus.Draft) return Result.Fail("Only drafts can be published");
+        if (Status is not (ListingStatus.Draft or ListingStatus.Unpublished))
+            return Result.Fail("Only drafts or unpublished listings can be published");
         Status = ListingStatus.Published;
         PublishedAt = DateTimeOffset.UtcNow;
         Raise(new ListingPublished(Id));
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Updates mutable listing details. Closed listings are terminal and
+    /// cannot be edited. Null arguments leave the current value unchanged.
+    /// </summary>
+    public Result UpdateDetails(string? title, string? description, Money? price)
+    {
+        if (Status == ListingStatus.Closed) return Result.Fail("Closed listings cannot be edited");
+        if (title is not null) Title = title;
+        if (description is not null) Description = description;
+        if (price is not null) Price = price;
+        return Result.Ok();
+    }
+
+    public Result Unpublish()
+    {
+        if (Status != ListingStatus.Published) return Result.Fail("Only published listings can be unpublished");
+        Status = ListingStatus.Unpublished;
+        return Result.Ok();
+    }
+
+    public Result Close()
+    {
+        if (Status == ListingStatus.Closed) return Result.Fail("Listing is already closed");
+        Status = ListingStatus.Closed;
         return Result.Ok();
     }
 }

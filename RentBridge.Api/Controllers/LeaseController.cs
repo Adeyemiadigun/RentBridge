@@ -1,15 +1,18 @@
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentBridge.Api.Dtos;
 using RentBridge.Application.Command.Lease;
 using RentBridge.Application.Query.Lease;
+using RentBridge.Application.Query.Transaction;
 
 namespace RentBridge.Api.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/leases")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/leases")]
 public sealed class LeaseController(IMediator mediator) : ControllerBase
 {
     /// <summary>
@@ -273,6 +276,27 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         }
 
         return Ok(new { released = true });
+    }
+
+    /// <summary>
+    /// Returns the escrow ledger lines for one lease, newest first
+    /// (fund → fees → payout). Accessible to the landlord, tenant,
+    /// assigned lawyer, or an admin.
+    /// </summary>
+    [HttpGet("{leaseId:guid}/transactions")]
+    public async Task<IActionResult> GetTransactions(
+        Guid leaseId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(new GetLeaseTransactionsQuery(leaseId, page, pageSize), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,8 @@ namespace RentBridge.Api.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/properties")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/properties")]
 public sealed class PropertyController(IMediator mediator) : ControllerBase
 {
     /// <summary>

@@ -24,8 +24,9 @@ public class LawyerProfile
 
     public Result Verify()
     {
-        if (Status != LawyerStatus.Pending)
-            return Result.Fail("Only pending lawyers can be verified.");
+        // Suspended lawyers can be re-verified (re-instated) after review.
+        if (Status is not (LawyerStatus.Pending or LawyerStatus.Suspended))
+            return Result.Fail("Only pending or suspended lawyers can be verified.");
         Status = LawyerStatus.Verified;
         return Result.Ok();
     }

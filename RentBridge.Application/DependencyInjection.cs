@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<IAgreementDocumentService, AgreementDocumentService>();
         services.AddScoped<IPlatformSettingsService, PlatformSettingsService>();
         services.AddScoped<IEscrowReleaseService, EscrowReleaseService>();
+        services.AddScoped<ILedgerService, LedgerService>();
 
         // Hashing:SecretKey — dev value in appsettings.development.json,
         // production via the Hashing__SecretKey environment variable.

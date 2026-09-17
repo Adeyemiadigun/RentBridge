@@ -1,11 +1,14 @@
-﻿using Hangfire;
+﻿using Asp.Versioning;
+using Hangfire;
 using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using RentBridge.Api.Hangfire;
 using RentBridge.Api.Middleware;
+using RentBridge.Api.Versioning;
 using RentBridge.Application;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Infrastructure;
@@ -16,6 +19,25 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// URL-segment versioning: /api/v1/.... Unversioned requests are assumed v1,
+// and clients can also pass ?api-version= or the X-Version header.
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = ApiVersionReader.Combine(
+        new UrlSegmentApiVersionReader(),
+        new QueryStringApiVersionReader("api-version"),
+        new HeaderApiVersionReader("X-Version"));
+})
+.AddMvc()
+.AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
 
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
@@ -59,15 +81,10 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddTransient<IConfigureOptions<Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions>, ConfigureSwaggerOptions>();
+
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Rent Bridge API",
-        Version = "v1",
-        Description = "Escrowed rental marketplace API: KYC, property verification, listings, and the lease lifecycle."
-    });
-
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -97,7 +114,12 @@ if (app.Environment.IsDevelopment())
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Rent Bridge API v1");
+    foreach (var description in app.DescribeApiVersions())
+    {
+        c.SwaggerEndpoint(
+            $"/swagger/{description.GroupName}/swagger.json",
+            $"Rent Bridge API {description.GroupName.ToUpperInvariant()}");
+    }
 });
 
 app.UseHttpsRedirection();
