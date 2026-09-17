@@ -1,4 +1,5 @@
-﻿using RentBridge.Application.Common.Interfaces.Repositories;
+﻿using Microsoft.EntityFrameworkCore;
+using RentBridge.Application.Common.Interfaces.Repositories;
 using RentBridge.Domain.Common;
 using System;
 using System.Collections;
@@ -12,6 +13,7 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
         private readonly AppDbContext _context;
         private Hashtable? _repositories;
         private IListingRepository? _listingRepository;
+        private ILeaseRepository? _leaseRepository;
 
         public UnitOfWork(AppDbContext context)
         {
@@ -19,6 +21,8 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
         }
 
         public IListingRepository Listings => _listingRepository ??= new ListingRepository(_context);
+
+        public ILeaseRepository Leases => _leaseRepository ??= new LeaseRepository(_context);
 
         public IGenericRepository<T> Repository<T>() where T : Entity<Guid>
         {
@@ -38,6 +42,26 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
         {
             return await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task<bool> TryClaimEscrowPayoutAsync(
+            Guid escrowPaymentId,
+            string payoutReference,
+            CancellationToken cancellationToken)
+        {
+            // Conditional UPDATE is race-safe under Read Committed: concurrent claims
+            // serialize on the row lock, and the loser re-evaluates the WHERE against
+            // the already-flipped status and matches zero rows.
+            var affected = await _context.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE escrow_payments
+                SET "Status" = 'Releasing',
+                    "PayoutReference" = {payoutReference},
+                    "payout_started_at" = now()
+                WHERE "Id" = {escrowPaymentId}
+                  AND "Status" IN ('Funded', 'PayoutFailed')
+                """, cancellationToken);
+
+            return affected == 1;
         }
     }
 }

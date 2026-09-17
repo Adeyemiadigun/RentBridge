@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
 using RentBridge.Domain.Common;
+using RentBridge.Domain.Entities;
 using RentBridge.Domain.Enums;
 using UserAggregate = RentBridge.Domain.Aggregates.User;
 
@@ -53,6 +54,10 @@ public sealed class VerifyLawyerCommandHandler(
             logger.LogInformation("Cannot verify lawyer {UserId}: {Error}", request.UserId, verify.Error);
             return Result<Guid>.Fail(verify.Error!);
         }
+
+        unitOfWork.Repository<AuditLog>().Add(
+            new AuditLog(actor.Id, "LawyerVerified", targetType: "User", targetId: lawyer.Id,
+                details: $"{{\"barNumber\":\"{lawyer.LawyerProfile.BarNumber}\"}}"));
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<Guid>.Ok(lawyer.Id);

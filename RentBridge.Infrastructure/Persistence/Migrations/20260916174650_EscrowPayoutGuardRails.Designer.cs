@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RentBridge.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using RentBridge.Infrastructure.Persistence;
 namespace RentBridge.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260916174650_EscrowPayoutGuardRails")]
+    partial class EscrowPayoutGuardRails
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -513,10 +516,6 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                                 .HasMaxLength(100)
                                 .HasColumnType("character varying(100)")
                                 .HasColumnName("payout_reference");
-
-                            b1.Property<DateTimeOffset?>("PayoutStartedAt")
-                                .HasColumnType("timestamp with time zone")
-                                .HasColumnName("payout_started_at");
 
                             b1.Property<string>("Reference")
                                 .IsRequired()

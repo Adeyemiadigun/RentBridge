@@ -13,6 +13,7 @@ public sealed class CertifyAgreementCommandHandler(
     ICurrentUser currentUser,
     ILawyerAssignmentService lawyerService,
     IAgreementDocumentService agreementService,
+    IEscrowReleaseService releaseService,
     ILogger<CertifyAgreementCommandHandler> logger)
     : IRequestHandler<CertifyAgreementCommand, Result>
 {
@@ -79,6 +80,11 @@ public sealed class CertifyAgreementCommandHandler(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Legal review is one of the three release gates; if escrow is already
+        // funded and this was the last gate, the payout runs now.
+        await releaseService.TryAutoReleaseAsync(lease.Id, cancellationToken);
+
         return Result.Ok();
     }
 }

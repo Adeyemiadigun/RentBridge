@@ -35,6 +35,11 @@ namespace RentBridge.Application.Command.Listing
                 logger.LogInformation("User {userId} is not identity verified", user.Id);
                 return Result<Guid>.Fail("Your identity must be verified before you can publish a listing");
             }
+            if (user.PayoutAccount is not { IsActive: true })
+            {
+                logger.LogInformation("User {userId} has no payout account", user.Id);
+                return Result<Guid>.Fail("Add a verified payout bank account before you can publish a listing");
+            }
 
             var property = await unitOfWork.Repository<Domain.Aggregates.Property>().FirstOrDefault(p => p.Id == listing.PropertyId, cancellationToken);
             if (property == null || !property.IsVerified)

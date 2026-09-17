@@ -11,6 +11,7 @@ namespace RentBridge.Application.Command.Lease;
 public class ConfirmInspectionCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
+    IEscrowReleaseService releaseService,
     ILogger<ConfirmInspectionCommandHandler> logger)
     : IRequestHandler<ConfirmInspectionCommand, Result>
 {
@@ -44,6 +45,11 @@ public class ConfirmInspectionCommandHandler(
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Inspection is one of the three release gates; if escrow is already
+        // funded and this was the last gate, the payout runs now.
+        await releaseService.TryAutoReleaseAsync(lease.Id, cancellationToken);
+
         return Result.Ok();
     }
 }

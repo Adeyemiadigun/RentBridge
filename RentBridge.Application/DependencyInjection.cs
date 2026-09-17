@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ILawyerAssignmentService, LawyerAssignmentService>();
         services.AddScoped<IAgreementDocumentService, AgreementDocumentService>();
         services.AddScoped<IPlatformSettingsService, PlatformSettingsService>();
+        services.AddScoped<IEscrowReleaseService, EscrowReleaseService>();
 
         // Hashing:SecretKey — dev value in appsettings.development.json,
         // production via the Hashing__SecretKey environment variable.

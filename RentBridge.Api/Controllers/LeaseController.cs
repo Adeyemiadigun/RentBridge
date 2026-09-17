@@ -259,37 +259,20 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
-    /// The landlord or an admin releases funded escrow to the landlord, net of
-    /// platform commission and the lawyer's legal-fee share. Idempotent.
+    /// Admin-only fallback: forces or retries the automatic escrow payout
+    /// (net of platform commission and the lawyer's legal-fee share). The
+    /// verification gates are still enforced. Privileged and audit-logged.
     /// </summary>
     [HttpPost("{leaseId:guid}/escrow/release")]
-    public async Task<IActionResult> ReleaseEscrow(Guid leaseId, [FromBody] ReleaseEscrowRequest? request, CancellationToken ct)
+    public async Task<IActionResult> ReleaseEscrow(Guid leaseId, CancellationToken ct)
     {
-        var result = await mediator.Send(
-            new ReleaseEscrowCommand(leaseId, request?.RecipientCode),
-            ct);
+        var result = await mediator.Send(new ReleaseEscrowCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
             return BadRequest(new { error = result.Error });
         }
 
         return Ok(new { released = true });
-    }
-
-    /// <summary>
-    /// The landlord stores the Paystack recipient code that receives the
-    /// escrow payout for this lease.
-    /// </summary>
-    [HttpPut("{leaseId:guid}/escrow/payout-recipient")]
-    public async Task<IActionResult> SetPayoutRecipient(Guid leaseId, [FromBody] SetPayoutRecipientRequest request, CancellationToken ct)
-    {
-        var result = await mediator.Send(new SetPayoutRecipientCommand(leaseId, request.RecipientCode), ct);
-        if (result.IsSuccess is false)
-        {
-            return BadRequest(new { error = result.Error });
-        }
-
-        return Ok(new { success = true });
     }
 
     /// <summary>

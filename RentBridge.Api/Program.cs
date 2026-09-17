@@ -7,6 +7,7 @@ using Microsoft.OpenApi;
 using RentBridge.Api.Hangfire;
 using RentBridge.Api.Middleware;
 using RentBridge.Application;
+using RentBridge.Application.Common.Interfaces;
 using RentBridge.Infrastructure;
 using RentBridge.Infrastructure.Services;
 using System.Text;
@@ -112,5 +113,16 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 app.UseMiddleware<ExceptionHandlerMiddleware>();
 
 app.MapControllers();
+
+// Reconciliation sweep: self-heals payouts that were claimed but never finalized
+// (e.g. the process died between the claim and the provider transfer).
+using (var scope = app.Services.CreateScope())
+{
+    var dispatcher = scope.ServiceProvider.GetRequiredService<IBackgroundJobDispatcher>();
+    dispatcher.AddOrUpdateRecurring<IEscrowReleaseService>(
+        "escrow-payout-reconciliation",
+        s => s.ReconcileStuckPayoutsAsync(),
+        "*/10 * * * *");
+}
 
 app.Run();

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Common;
+using RentBridge.Domain.Entities;
 
 namespace RentBridge.Infrastructure.Persistence;
 
@@ -18,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<Listing> Listings => Set<Listing>();
     public DbSet<Lease> Leases => Set<Lease>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -4,6 +4,7 @@ using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
 using RentBridge.Application.Dtos.Admin;
 using RentBridge.Domain.Common;
+using RentBridge.Domain.Entities;
 using RentBridge.Domain.Enums;
 using SettingsAggregate = RentBridge.Domain.Aggregates.PlatformSettings;
 
@@ -37,14 +38,23 @@ public sealed class UpdateFeeSettingsCommandHandler(
             return Result<FeeSettingsResponse>.Fail(settingsRes.Error!);
         }
 
-        var update = settingsRes.Value.Update(request.PlatformCommissionRate, request.LegalFeeRate);
+        var settings = settingsRes.Value;
+        var oldCommission = settings.PlatformCommissionRate;
+        var oldLegal = settings.LegalFeeRate;
+
+        var update = settings.Update(request.PlatformCommissionRate, request.LegalFeeRate);
         if (!update.IsSuccess)
         {
             return Result<FeeSettingsResponse>.Fail(update.Error!);
         }
 
+        unitOfWork.Repository<AuditLog>().Add(
+            new AuditLog(actor.Id, "FeeSettingsUpdated", targetType: "PlatformSettings", targetId: settings.Id,
+                details: $"{{\"oldCommission\":{oldCommission},\"oldLegal\":{oldLegal}," +
+                         $"\"newCommission\":{request.PlatformCommissionRate},\"newLegal\":{request.LegalFeeRate}}}"));
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
-        return Result<FeeSettingsResponse>.Ok(ToResponse(settingsRes.Value));
+        return Result<FeeSettingsResponse>.Ok(ToResponse(settings));
     }
 
     private static FeeSettingsResponse ToResponse(SettingsAggregate settings)

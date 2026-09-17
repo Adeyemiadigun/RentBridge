@@ -74,7 +74,16 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
             p.HasIndex(p => p.Reference).IsUnique();
             p.HasIndex(p => new { p.UserId, p.IdempotencyKey }).IsUnique();
 
+            // DB guard rail: at most one in-flight-or-completed payout per lease.
+            // Retries stay legal because PayoutFailed is outside the filter.
+            p.HasIndex(p => p.LeaseId)
+                .HasDatabaseName("ux_escrow_payments_lease_active_payout")
+                .IsUnique()
+                .HasFilter("\"Status\" IN ('Releasing', 'Released')");
+
             p.Property(x => x.PayoutReference).HasColumnName("payout_reference").HasMaxLength(100);
+            p.Property(x => x.PayoutAttempts).HasColumnName("payout_attempts");
+            p.Property(x => x.PayoutStartedAt).HasColumnName("payout_started_at");
 
             p.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
 

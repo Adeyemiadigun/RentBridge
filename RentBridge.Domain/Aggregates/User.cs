@@ -17,6 +17,7 @@ public class User : Entity<Guid>
     public string PasswordHash { get; private set; }
     public string PasswordSalt { get; private set; }
     public LawyerProfile? LawyerProfile { get; private set; }
+    public PayoutAccount? PayoutAccount { get; private set; }
 
     private User() { }   // EF
 
@@ -53,6 +54,18 @@ public class User : Entity<Guid>
         return Result.Ok();
     }
 
+    /// <summary>
+    /// Registers (or replaces) the user's escrow payout bank account. Only the
+    /// roles that can own listings may hold a payout account.
+    /// </summary>
+    public Result SetPayoutAccount(PayoutAccount account)
+    {
+        if (Role is not (UserRole.Landlord or UserRole.Agent or UserRole.Caretaker))
+            return Result.Fail("Only landlords, agents, and caretakers can register a payout account.");
+
+        PayoutAccount = account;
+        return Result.Ok();
+    }
 }
 
 public record IdentityVerified(Guid UserId, Guid KycVerificationId) : IDomainEvent;

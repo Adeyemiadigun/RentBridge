@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RentBridge.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using RentBridge.Infrastructure.Persistence;
 namespace RentBridge.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260916170812_AuditLog")]
+    partial class AuditLog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -505,18 +508,10 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                             b1.Property<Guid>("LeaseId")
                                 .HasColumnType("uuid");
 
-                            b1.Property<int>("PayoutAttempts")
-                                .HasColumnType("integer")
-                                .HasColumnName("payout_attempts");
-
                             b1.Property<string>("PayoutReference")
                                 .HasMaxLength(100)
                                 .HasColumnType("character varying(100)")
                                 .HasColumnName("payout_reference");
-
-                            b1.Property<DateTimeOffset?>("PayoutStartedAt")
-                                .HasColumnType("timestamp with time zone")
-                                .HasColumnName("payout_started_at");
 
                             b1.Property<string>("Reference")
                                 .IsRequired()
@@ -532,10 +527,7 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
 
                             b1.HasKey("Id");
 
-                            b1.HasIndex("LeaseId")
-                                .IsUnique()
-                                .HasDatabaseName("ux_escrow_payments_lease_active_payout")
-                                .HasFilter("\"Status\" IN ('Releasing', 'Released')");
+                            b1.HasIndex("LeaseId");
 
                             b1.HasIndex("Reference")
                                 .IsUnique();
@@ -853,63 +845,6 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("UserId");
                         });
 
-                    b.OwnsOne("RentBridge.Domain.Entities.PayoutAccount", "PayoutAccount", b1 =>
-                        {
-                            b1.Property<Guid>("UserId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<string>("AccountName")
-                                .IsRequired()
-                                .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
-                                .HasColumnName("payout_account_name");
-
-                            b1.Property<string>("AccountNumberLast4")
-                                .IsRequired()
-                                .HasMaxLength(4)
-                                .HasColumnType("character varying(4)")
-                                .HasColumnName("payout_account_last4");
-
-                            b1.Property<string>("BankCode")
-                                .IsRequired()
-                                .HasMaxLength(20)
-                                .HasColumnType("character varying(20)")
-                                .HasColumnName("payout_bank_code");
-
-                            b1.Property<string>("BankName")
-                                .IsRequired()
-                                .HasMaxLength(150)
-                                .HasColumnType("character varying(150)")
-                                .HasColumnName("payout_bank_name");
-
-                            b1.Property<bool>("IsActive")
-                                .HasColumnType("boolean")
-                                .HasColumnName("payout_account_active");
-
-                            b1.Property<string>("Provider")
-                                .IsRequired()
-                                .HasMaxLength(40)
-                                .HasColumnType("character varying(40)")
-                                .HasColumnName("payout_provider");
-
-                            b1.Property<string>("RecipientCode")
-                                .IsRequired()
-                                .HasMaxLength(120)
-                                .HasColumnType("character varying(120)")
-                                .HasColumnName("payout_recipient_code");
-
-                            b1.Property<DateTimeOffset>("VerifiedAt")
-                                .HasColumnType("timestamp with time zone")
-                                .HasColumnName("payout_account_verified_at");
-
-                            b1.HasKey("UserId");
-
-                            b1.ToTable("users");
-
-                            b1.WithOwner()
-                                .HasForeignKey("UserId");
-                        });
-
                     b.OwnsOne("RentBridge.Domain.ValueObjects.Email", "Email", b1 =>
                         {
                             b1.Property<Guid>("UserId")
@@ -956,8 +891,6 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("LawyerProfile");
-
-                    b.Navigation("PayoutAccount");
 
                     b.Navigation("Phone")
                         .IsRequired();

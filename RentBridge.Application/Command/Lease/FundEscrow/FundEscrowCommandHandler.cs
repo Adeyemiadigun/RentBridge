@@ -10,6 +10,7 @@ using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 using EscrowPaymentEntity = RentBridge.Domain.Entities.EscrowPayment;
 using LeaseAggregate = RentBridge.Domain.Aggregates.Lease;
+using UserAggregate = RentBridge.Domain.Aggregates.User;
 
 namespace RentBridge.Application.Command.Lease;
 
@@ -66,6 +67,22 @@ public sealed class FundEscrowCommandHandler(
             return Result<FundEscrowResponse>.Fail("Listing for this lease was not found.");
         }
 
+        // Snapshot the landlord's verified payout account onto the lease now, so
+        // the automatic payout can run the moment every gate has passed.
+        var landlord = await unitOfWork.Repository<UserAggregate>()
+            .FirstOrDefault(u => u.Id == lease.LandlordUserId, cancellationToken);
+        if (landlord?.PayoutAccount is not { IsActive: true })
+        {
+            logger.LogWarning("Lease {LeaseId} landlord {LandlordUserId} has no payout account", lease.Id, lease.LandlordUserId);
+            return Result<FundEscrowResponse>.Fail("The landlord has not registered a payout account yet.");
+        }
+
+        var setRecipient = lease.SetLandlordPayoutRecipientCode(landlord.PayoutAccount.RecipientCode);
+        if (!setRecipient.IsSuccess)
+        {
+            return Result<FundEscrowResponse>.Fail(setRecipient.Error!);
+        }
+
         var settingsRes = await settingsService.GetOrCreateAsync(cancellationToken);
         if (!settingsRes.IsSuccess)
         {
@@ -80,12 +97,34 @@ public sealed class FundEscrowCommandHandler(
             return Result<FundEscrowResponse>.Fail(split.Error!);
         }
 
-        var payment = new EscrowPaymentEntity(
-            lease.Id,
-            tenant.Id,
-            gross,
-            $"RB{Guid.NewGuid():N}".ToUpperInvariant(),
-            lease.Id);
+        var newReference = $"RB{Guid.NewGuid():N}".ToUpperInvariant();
+
+        // Reuse the lease's single payment row when a prior attempt failed or never
+        // completed, so re-funding works without tripping the per-lease idempotency
+        // unique index. Otherwise record a fresh payment.
+        var payment = lease.EscrowPayments
+            .Where(p => p.Status is EscrowStatus.Failed or EscrowStatus.Pending)
+            .OrderByDescending(p => p.CreatedAt)
+            .FirstOrDefault();
+
+        if (payment is not null)
+        {
+            var reinitialize = payment.Reinitialize(newReference);
+            if (!reinitialize.IsSuccess)
+            {
+                return Result<FundEscrowResponse>.Fail(reinitialize.Error!);
+            }
+        }
+        else
+        {
+            payment = new EscrowPaymentEntity(lease.Id, tenant.Id, gross, newReference, lease.Id);
+
+            var record = lease.RecordFunding(payment);
+            if (!record.IsSuccess)
+            {
+                return Result<FundEscrowResponse>.Fail(record.Error!);
+            }
+        }
 
         payment.AttachSplit(split.Value);
 
@@ -108,12 +147,6 @@ public sealed class FundEscrowCommandHandler(
         if (!attachUrl.IsSuccess)
         {
             return Result<FundEscrowResponse>.Fail(attachUrl.Error!);
-        }
-
-        var record = lease.RecordFunding(payment);
-        if (!record.IsSuccess)
-        {
-            return Result<FundEscrowResponse>.Fail(record.Error!);
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
