@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentBridge.Application.Command.Admin;
 using RentBridge.Application.Dtos.Admin;
+using RentBridge.Application.Dtos.Dashboard;
 using RentBridge.Application.Query.Admin;
 
 namespace RentBridge.Api.Controllers;
@@ -63,6 +64,43 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         }
 
         return Ok(new { userId = result.Value, rejected = true });
+    }
+
+    /// <summary>
+    /// Platform-wide operational view: user/listing/lease counts, money held
+    /// in escrow, and transaction metrics from the ledger.
+    /// </summary>
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> GetDashboard(CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetAdminDashboardQuery(), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Platform-wide transaction time-series for charts, grouped in SQL by
+    /// UTC day, Monday-start week, or calendar month. Empty buckets are
+    /// returned as zeros; `to` is exclusive.
+    /// </summary>
+    [HttpGet("metrics/transactions")]
+    public async Task<IActionResult> GetTransactionMetrics(
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] MetricsGranularity granularity = MetricsGranularity.Day,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(new GetTransactionMetricsQuery(from, to, granularity), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
     }
 
     /// <summary>

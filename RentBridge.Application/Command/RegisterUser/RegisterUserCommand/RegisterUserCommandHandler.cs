@@ -14,11 +14,19 @@ namespace RentBridge.Application.Command.RegisterUser
         public async Task<Result<Guid>> Handle(registerUserCommand request, CancellationToken cancellationToken)
         {
             
-                var emailExists = await _unitOfWork.Repository<User>().AnyAsync(x => x.Email == request.Email, cancellationToken);
+                // Email is an owned value object; compare its mapped Value so EF can translate.
+                var emailExists = await _unitOfWork.Repository<User>().AnyAsync(x => x.Email.Value == request.Email, cancellationToken);
                 if (emailExists)
                 {
                     logger.LogInformation("Email already exists: {Email}", request.Email);
                     return Result<Guid>.Fail("Email already exists");
+                }
+
+                var phoneExists = await _unitOfWork.Repository<User>().AnyAsync(x => x.Phone.Value == request.Phone, cancellationToken);
+                if (phoneExists)
+                {
+                    logger.LogInformation("Phone number already exists: {Phone}", request.Phone);
+                    return Result<Guid>.Fail("Phone number already exists");
                 }
 
                 if (!Enum.TryParse<UserRole>(request.Role, out var userRole) || !Enum.IsDefined(userRole))

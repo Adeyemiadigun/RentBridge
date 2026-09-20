@@ -10,6 +10,7 @@ namespace RentBridge.Application.Common.Interfaces.Repositories
         IGenericRepository<T> Repository<T>() where T : Entity<Guid>;
         IListingRepository Listings { get; }
         ILeaseRepository Leases { get; }
+        ILedgerRepository Ledger { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 
         /// <summary>

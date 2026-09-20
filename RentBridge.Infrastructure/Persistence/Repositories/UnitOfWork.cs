@@ -14,6 +14,7 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
         private Hashtable? _repositories;
         private IListingRepository? _listingRepository;
         private ILeaseRepository? _leaseRepository;
+        private ILedgerRepository? _ledgerRepository;
 
         public UnitOfWork(AppDbContext context)
         {
@@ -23,6 +24,8 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
         public IListingRepository Listings => _listingRepository ??= new ListingRepository(_context);
 
         public ILeaseRepository Leases => _leaseRepository ??= new LeaseRepository(_context);
+
+        public ILedgerRepository Ledger => _ledgerRepository ??= new LedgerRepository(_context);
 
         public IGenericRepository<T> Repository<T>() where T : Entity<Guid>
         {
