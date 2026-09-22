@@ -6,6 +6,7 @@ using RentBridge.Application.Command.Admin;
 using RentBridge.Application.Dtos.Admin;
 using RentBridge.Application.Dtos.Dashboard;
 using RentBridge.Application.Query.Admin;
+using RentBridge.Domain.Enums;
 
 namespace RentBridge.Api.Controllers;
 
@@ -95,6 +96,46 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         CancellationToken ct = default)
     {
         var result = await mediator.Send(new GetTransactionMetricsQuery(from, to, granularity), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Lawyer panel: paged lawyers for the approve/reject/suspend workflow.
+    /// Filter by status (e.g. Pending for the verification queue).
+    /// </summary>
+    [HttpGet("lawyers")]
+    public async Task<IActionResult> GetLawyers(
+        [FromQuery] LawyerStatus? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(new GetLawyersQuery(status, page, pageSize), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Listing moderation queue: paged listings with owner and property
+    /// verification state. Filter by status if needed.
+    /// </summary>
+    [HttpGet("listings")]
+    public async Task<IActionResult> GetListingsForModeration(
+        [FromQuery] ListingStatus? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(new GetListingsForModerationQuery(status, page, pageSize), ct);
         if (result.IsSuccess is false)
         {
             return BadRequest(new { error = result.Error });

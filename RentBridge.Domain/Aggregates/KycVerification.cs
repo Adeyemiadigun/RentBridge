@@ -22,8 +22,9 @@ public class KycVerification : Entity<Guid>
     }
 
     /// <summary>
-    /// Applies the verification vendor result. Smile ID returns one complete
-    /// outcome per job (ID check + selfie), so a single result decides.
+    /// Applies the verification vendor result. Sync vendors (Dojah) and
+    /// webhook vendors (Smile ID) both return one complete outcome per
+    /// check (ID check + selfie), so a single result decides.
     /// </summary>
     public Result ApplyResult(VerificationResult result)
     {

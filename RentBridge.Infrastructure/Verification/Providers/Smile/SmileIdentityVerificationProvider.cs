@@ -1,29 +1,33 @@
-using System.Net.Http;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using RentBridge.Application.Common.Interfaces;
+using RentBridge.Application.Common.Interfaces.Verification;
 using RentBridge.Domain.Common;
 
-namespace RentBridge.Infrastructure.Services;
+namespace RentBridge.Infrastructure.Verification.Providers.Smile;
 
 /// <summary>
-/// Smile ID token service. In the SDK flow the client submits the biometric
-/// job directly; our only job is to mint the short-lived v3 JWT.
+/// Legacy strategy: Smile ID client-SDK flow. The backend mints a
+/// short-lived v3 JWT; the device submits the biometric_kyc job directly;
+/// the verdict arrives on the Smile webhook.
 /// Base URL: sandbox https://testapi.smileidentity.com (default),
 /// production https://api.smileidentity.com.
 /// </summary>
-public sealed class SmileIdentityService : IIdentityVerificationService
+public sealed class SmileIdentityVerificationProvider : IIdentityVerificationProvider
 {
+    public string ProviderName => "smile";
+    public bool SupportsSyncVerification => false;
+    public bool SupportsSdkSession => true;
+
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
-    private readonly ILogger<SmileIdentityService> _logger;
+    private readonly ILogger<SmileIdentityVerificationProvider> _logger;
     private readonly string _baseUrl;
 
-    public SmileIdentityService(
+    public SmileIdentityVerificationProvider(
         HttpClient httpClient,
         IConfiguration configuration,
-        ILogger<SmileIdentityService> logger)
+        ILogger<SmileIdentityVerificationProvider> logger)
     {
         _httpClient = httpClient;
         _configuration = configuration;
@@ -42,7 +46,14 @@ public sealed class SmileIdentityService : IIdentityVerificationService
         }
     }
 
-    public async Task<Result<string>> GetTokenAsync(CancellationToken ct)
+    public Task<Result<ProviderVerificationOutcome>> VerifyAsync(
+        IdentityVerificationRequest request, CancellationToken ct) =>
+        Task.FromResult(Result<ProviderVerificationOutcome>.Fail(
+            "Smile ID uses the client SDK flow; no synchronous verification available. " +
+            "Call CreateSdkSessionAsync and submit the biometric_kyc job from the device."));
+
+    public async Task<Result<string>> CreateSdkSessionAsync(
+        Guid kycVerificationId, string nin, CancellationToken ct)
     {
         try
         {

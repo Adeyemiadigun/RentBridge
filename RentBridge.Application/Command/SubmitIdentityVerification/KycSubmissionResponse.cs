@@ -1,11 +1,15 @@
 namespace RentBridge.Application.Command.SubmitIdentityVerification;
 
 /// <summary>
-/// Result of starting a KYC flow. The client passes the token (plus its
-/// own partner id, job parameters and callback url from the controller)
-/// into the Smile ID SDK, which captures the selfie + liveness frames and
-/// submits the biometric_kyc job directly. The verdict arrives on our webhook.
+/// Provider-agnostic result of starting a KYC flow.
+/// Sync providers (Dojah) return the verdict inline (Passed/Confidence set,
+/// ClientToken null). SDK providers (Smile) return a ClientToken and the
+/// verdict arrives later on the provider webhook (Passed null = pending).
 /// </summary>
 public sealed record KycSubmissionResponse(
     Guid KycVerificationId,
-    string SmileToken);
+    string Provider,
+    bool? Passed,
+    double? Confidence,
+    string? ProviderRef,
+    string? ClientToken);

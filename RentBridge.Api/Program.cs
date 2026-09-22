@@ -12,10 +12,36 @@ using RentBridge.Api.Versioning;
 using RentBridge.Application;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Infrastructure;
+using RentBridge.Infrastructure.Persistence;
 using RentBridge.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Render: Postgres addons expose DATABASE_URL as postgres://user:pass@host:port/db
+// Npgsql/EF Core needs Host=...;Port=...;Database=... format, so convert it here.
+// If ConnectionStrings__DefaultConnection is set explicitly, it wins.
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (!string.IsNullOrWhiteSpace(databaseUrl) &&
+    string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+{
+    try
+    {
+        var uri = new Uri(databaseUrl);
+        var userInfo = uri.UserInfo.Split(':', 2);
+        var npgsqlConn =
+            $"Host={uri.Host};Port={uri.Port};" +
+            $"Database={uri.AbsolutePath.Trim('/')};" +
+            $"Username={userInfo[0]};Password={(userInfo.Length > 1 ? userInfo[1] : string.Empty)};" +
+            "SSL Mode=Require;Trust Server Certificate=true;Timeout=100";
+        builder.Configuration["ConnectionStrings:DefaultConnection"] = npgsqlConn;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"WARNING: Could not parse DATABASE_URL: {ex.Message}");
+    }
+}
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -105,6 +131,13 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+// Apply EF Core migrations on startup so Render deploys don't need a manual step.
+using (var migrateScope = app.Services.CreateScope())
+{
+    var db = migrateScope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 if (app.Environment.IsDevelopment())
 {
