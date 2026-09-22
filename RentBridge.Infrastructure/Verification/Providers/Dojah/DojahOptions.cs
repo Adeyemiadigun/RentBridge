@@ -15,6 +15,12 @@ public sealed class DojahOptions
     /// <summary>Secret key, sent raw in the Authorization header (never "Bearer").</summary>
     public string SecretKey { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Dedicated webhook signing secret from the Dojah dashboard (Developers → webhooks).
+    /// If set, it is used for x-dojah-signature validation instead of SecretKey.
+    /// </summary>
+    public string WebhookSecret { get; set; } = string.Empty;
+
     /// <summary>Legacy alias for SecretKey.</summary>
     public string ApiKey { get; set; } = string.Empty;
 

@@ -58,7 +58,9 @@ public sealed class PaystackEscrowProvider(
         string signatureHeader,
         CancellationToken cancellationToken)
     {
-        var webhookSecret = options.Paystack.WebhookSecret;
+        // Paystack signs webhooks with the Secret Key (no separate webhook secret
+        // exists); ResolvedWebhookSecret falls back to it when unset.
+        var webhookSecret = options.Paystack.ResolvedWebhookSecret;
         if (string.IsNullOrWhiteSpace(webhookSecret) || string.IsNullOrWhiteSpace(signatureHeader))
         {
             return Result<PaymentNotification>.Fail("Paystack webhook signature cannot be verified.");

@@ -23,6 +23,14 @@ public sealed class PaymentOptions
         public string PublicKey { get; set; } = string.Empty;
         public string WebhookSecret { get; set; } = string.Empty;
         public string CallbackUrl { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Paystack signs webhooks with your Secret Key — there is no separate
+        /// webhook secret in the dashboard. An explicit WebhookSecret wins;
+        /// otherwise the Secret Key is used.
+        /// </summary>
+        public string ResolvedWebhookSecret =>
+            !string.IsNullOrWhiteSpace(WebhookSecret) ? WebhookSecret : SecretKey;
     }
 
     public void GuardValid()
