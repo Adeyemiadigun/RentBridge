@@ -13,6 +13,11 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/leases")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
 public sealed class LeaseController(IMediator mediator) : ControllerBase
 {
     /// <summary>
@@ -233,6 +238,8 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
     /// and signature blocks + audit trail).
     /// </summary>
     [HttpGet("{leaseId:guid}/agreement/pdf")]
+    [Produces("application/pdf")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAgreementPdf(Guid leaseId, CancellationToken ct)
     {
         var result = await mediator.Send(new GetLeaseAgreementPdfQuery(leaseId), ct);

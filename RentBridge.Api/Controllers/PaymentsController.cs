@@ -14,6 +14,8 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersionNeutral]
 [Route("api/payments/paystack/webhook")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
 public sealed class PaymentsController(
     IMediator mediator,
     ILogger<PaymentsController> logger) : ControllerBase

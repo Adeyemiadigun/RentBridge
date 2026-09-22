@@ -11,6 +11,9 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/listings")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
 public sealed class ListingController(IMediator mediator) : ControllerBase
 {
     /// <summary>
@@ -19,6 +22,8 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
     /// </summary>
     [HttpPost]
     [Authorize]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Create([FromBody] ListPropertyCommand command, CancellationToken ct)
     {
         var result = await mediator.Send(command, ct);
@@ -37,6 +42,8 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
     /// </summary>
     [HttpPost("{listingId:guid}/publish")]
     [Authorize]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Publish(Guid listingId, CancellationToken ct)
     {
         var result = await mediator.Send(new PublishListingCommand(listingId), ct);
@@ -54,6 +61,8 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
     /// </summary>
     [HttpPatch("{listingId:guid}")]
     [Authorize]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Edit(Guid listingId, [FromBody] EditListingRequest request, CancellationToken ct)
     {
         var result = await mediator.Send(
@@ -71,6 +80,8 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
     /// </summary>
     [HttpPost("{listingId:guid}/unpublish")]
     [Authorize]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Unpublish(Guid listingId, CancellationToken ct)
     {
         var result = await mediator.Send(new UnpublishListingCommand(listingId), ct);
@@ -88,6 +99,8 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
     /// </summary>
     [HttpPost("{listingId:guid}/close")]
     [Authorize]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Close(Guid listingId, CancellationToken ct)
     {
         var result = await mediator.Send(new CloseListingCommand(listingId), ct);

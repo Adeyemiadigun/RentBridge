@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using RentBridge.Api.Hangfire;
 using RentBridge.Api.Middleware;
+using RentBridge.Api.Swagger;
 using RentBridge.Api.Versioning;
 using RentBridge.Application;
 using RentBridge.Application.Common.Interfaces;
@@ -121,13 +122,9 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Paste your access token. The Authorization header will be 'Bearer <token>'."
     });
 
-    c.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecuritySchemeReference("Bearer", null, null),
-            new List<string>()
-        }
-    });
+    // Per-operation lock icons: only endpoints that require auth get the
+    // Bearer requirement (see BearerSecuritySchemeOperationFilter).
+    c.OperationFilter<BearerSecuritySchemeOperationFilter>();
 });
 
 var app = builder.Build();
