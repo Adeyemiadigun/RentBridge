@@ -2,7 +2,7 @@ using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Aggregates;
 
 /// <summary>
 /// Owned by the Lease aggregate. Enforces the business rule that a
@@ -16,6 +16,8 @@ public class Agreement
     public string? ContentHash { get; private set; }
     public Guid? CertifyingLawyerId { get; private set; }
     public DateTimeOffset? CertifiedAt { get; private set; }
+
+    public AgreementDocument? Document { get; private set; }
 
     private readonly List<SignatureRecord> _signatures = new();
     public IReadOnlyCollection<SignatureRecord> Signatures => _signatures;
@@ -31,10 +33,22 @@ public class Agreement
     public bool IsCertified => CertifyingLawyerId is not null;
     public bool IsFullySigned => _signatures.Count >= 2;
 
+    public Result SetDocument(AgreementDocument document)
+    {
+        if (IsCertified) return Result.Fail("Cannot change agreement content after certification.");
+        if (_signatures.Count > 0) return Result.Fail("Cannot change agreement content after signing has begun.");
+
+        Document = document;
+        ContentHash = document.ContentHash;
+        return Result.Ok();
+    }
+
     public Result Certify(Guid certifyingLawyerId)
     {
         if (IsCertified) return Result.Fail("Agreement is already certified.");
         if (_signatures.Count > 0) return Result.Fail("Cannot certify an agreement after signing has begun.");
+        if (Document is null || string.IsNullOrWhiteSpace(Document.ContentHash))
+            return Result.Fail("Agreement content has not been composed yet.");
 
         CertifyingLawyerId = certifyingLawyerId;
         CertifiedAt = DateTimeOffset.UtcNow;

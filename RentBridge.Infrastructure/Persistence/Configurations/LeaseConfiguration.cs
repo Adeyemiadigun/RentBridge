@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Enums;
 
 namespace RentBridge.Infrastructure.Persistence.Configurations;
@@ -15,6 +15,10 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
         b.HasIndex(l => l.TenantUserId);
         b.HasIndex(l => l.LandlordUserId);
         b.HasIndex(l => l.ListingId);
+
+        b.Property(l => l.LandlordPayoutRecipientCode)
+            .HasColumnName("landlord_payout_recipient_code")
+            .HasMaxLength(100);
 
         b.Property<uint>("Version")
          .HasColumnType("xid")
@@ -45,6 +49,19 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
                 s.Property(x => x.SignedAt).HasColumnName("signed_at");
                 s.Property(x => x.IpAddress).HasColumnName("ip_address");
             });
+
+            // agreement document — canonical terms snapshot, separate table
+            a.OwnsOne(x => x.Document, d =>
+            {
+                d.ToTable("agreement_documents");
+                d.WithOwner().HasForeignKey("AgreementId");
+                d.HasKey(d => d.Id);
+
+                d.Property(x => x.Version).HasColumnName("version");
+                d.Property(x => x.TermsJson).HasColumnName("terms_json").HasColumnType("text").IsRequired();
+                d.Property(x => x.ContentHash).HasColumnName("content_hash").HasMaxLength(128).IsRequired();
+                d.Property(x => x.DraftedAt).HasColumnName("drafted_at");
+            });
         });
 
         // escrow payments — separate owned table
@@ -57,6 +74,17 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
             p.HasIndex(p => p.Reference).IsUnique();
             p.HasIndex(p => new { p.UserId, p.IdempotencyKey }).IsUnique();
 
+            // DB guard rail: at most one in-flight-or-completed payout per lease.
+            // Retries stay legal because PayoutFailed is outside the filter.
+            p.HasIndex(p => p.LeaseId)
+                .HasDatabaseName("ux_escrow_payments_lease_active_payout")
+                .IsUnique()
+                .HasFilter("\"Status\" IN ('Releasing', 'Released')");
+
+            p.Property(x => x.PayoutReference).HasColumnName("payout_reference").HasMaxLength(100);
+            p.Property(x => x.PayoutAttempts).HasColumnName("payout_attempts");
+            p.Property(x => x.PayoutStartedAt).HasColumnName("payout_started_at");
+
             p.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
 
             p.OwnsOne(x => x.GrossAmount, m =>
@@ -67,13 +95,23 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
 
             p.OwnsOne(x => x.Split, s =>
             {
-                s.Property(v => v.PlatformCommission)
-                 .HasColumnName("platform_commission").HasPrecision(18, 2);
-                s.Property(v => v.LegalFeeShare)
-                 .HasColumnName("legal_fee_share").HasPrecision(18, 2);
-                s.Property(v => v.LandlordPayout)
-                 .HasColumnName("landlord_payout").HasPrecision(18, 2);
+                s.OwnsOne(v => v.PlatformCommission, m =>
+                {
+                    m.Property(x => x.Amount).HasColumnName("platform_commission").HasPrecision(18, 2);
+                    m.Property(x => x.Currency).HasColumnName("platform_commission_currency");
+                });
+                s.OwnsOne(v => v.LegalFeeShare, m =>
+                {
+                    m.Property(x => x.Amount).HasColumnName("legal_fee_share").HasPrecision(18, 2);
+                    m.Property(x => x.Currency).HasColumnName("legal_fee_share_currency");
+                });
+                s.OwnsOne(v => v.LandlordPayout, m =>
+                {
+                    m.Property(x => x.Amount).HasColumnName("landlord_payout").HasPrecision(18, 2);
+                    m.Property(x => x.Currency).HasColumnName("landlord_payout_currency");
+                });
             });
+            p.Navigation(x => x.Split).IsRequired(true);
         });
 
         // inspection requests — owned children, separate table
@@ -87,6 +125,6 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
 
             r.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
         });
-        b.Navigation(l => l.InspectionRequests).IsRequired(false);
     }
 }
+

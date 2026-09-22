@@ -1,7 +1,7 @@
 ﻿using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Entities;
 
 /// <summary>
 /// Owned child entity of the Property aggregate. Not an aggregate root —
@@ -27,9 +27,27 @@ public class OwnershipDocument
 
     private OwnershipDocument() { }   // EF
 
+    public Result StartReview()
+    {
+        if (Status != OwnershipDocStatus.Uploaded)
+            return Result.Fail("Only uploaded documents can be submitted for review.");
+        Status = OwnershipDocStatus.UnderReview;
+        return Result.Ok();
+    }
+
     public Result Verify()
     {
+        if (Status != OwnershipDocStatus.UnderReview)
+            return Result.Fail("Only documents under review can be verified.");
         Status = OwnershipDocStatus.Verified;
+        return Result.Ok();
+    }
+
+    public Result Reject()
+    {
+        if (Status != OwnershipDocStatus.UnderReview)
+            return Result.Fail("Only documents under review can be rejected.");
+        Status = OwnershipDocStatus.Rejected;
         return Result.Ok();
     }
 }

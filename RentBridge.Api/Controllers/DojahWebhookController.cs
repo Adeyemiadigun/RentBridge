@@ -1,44 +1,56 @@
 using System.Text.Json;
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using RentBridge.Application.Command.ApplyVerificationResult;
-using RentBridge.Infrastructure.Verification;
+using RentBridge.Infrastructure.Verification.Providers.Dojah;
 
 namespace RentBridge.Api.Controllers;
 
+/// <summary>
+/// Dojah webhook ingress for hosted (EasyOnboard / kyc_widget) sessions.
+/// Launch the widget with our KycVerification id as reference_id; Dojah
+/// echoes it back so we can correlate the event. Sync API verifications
+/// (POST kyc/verify) need no webhook — they return inline.
+/// Always answers 200 for authenticated events so Dojah stops retrying.
+/// See https://docs.dojah.io/api-reference/core-concepts/webhooks-signatures
+/// </summary>
 [ApiController]
+[ApiVersionNeutral]
 [Route("api/webhooks/dojah")]
-public class DojahWebhookController(
+public sealed class DojahWebhookController(
     IMediator mediator,
     IDojahSignatureValidator signatureValidator,
     ILogger<DojahWebhookController> logger) : ControllerBase
 {
-    
     [HttpPost]
     public async Task<IActionResult> Handle(CancellationToken ct)
     {
-        // 1. Read the raw body once - needed both for signature verification
-        //    and payload deserialization (the model binder would have consumed it).
-        var rawBody = await new StreamReader(Request.Body).ReadToEndAsync(ct);
-
-        // 2. Verify the HMAC signature so only genuine Dojah calls are trusted.
-        if (!Request.Headers.TryGetValue("X-Dojah-Signature", out var signature))
+        // 1. Read the raw body once — the v1 signature is over these exact bytes.
+        byte[] rawBody;
+        using (var ms = new MemoryStream())
         {
-            logger.LogWarning("Dojah webhook missing X-Dojah-Signature header.");
-            return Ok(new { acknowledged = true });
+            await Request.Body.CopyToAsync(ms, ct);
+            rawBody = ms.ToArray();
         }
 
-        if (!signatureValidator.IsValid(rawBody, signature.ToString()))
+        var hasV1 = Request.Headers.TryGetValue("x-dojah-signature", out var sigV1);
+        var hasV2 = Request.Headers.TryGetValue("x-dojah-signature-v2", out var sigV2);
+
+        var authentic = (hasV1 && signatureValidator.IsValidV1(sigV1.ToString(), rawBody))
+            || (hasV2 && signatureValidator.IsValidV2(sigV2.ToString()));
+        if (!authentic)
         {
             logger.LogWarning("Dojah webhook signature verification failed.");
-            return Ok(new { acknowledged = true });
+            return Unauthorized(new { acknowledged = false });
         }
 
-        // 3. Deserialize the payload. Our DTO is tolerant of the real shape.
-        DojahWebhookPayload? payload;
+        // 2. Parse the event. kyc_widget events carry reference_id,
+        //    verification_status and the overall status at the top level.
+        JsonDocument doc;
         try
         {
-            payload = JsonSerializer.Deserialize<DojahWebhookPayload>(rawBody);
+            doc = JsonDocument.Parse(rawBody);
         }
         catch (JsonException ex)
         {
@@ -46,54 +58,42 @@ public class DojahWebhookController(
             return Ok(new { acknowledged = true });
         }
 
-        if (payload is null)
+        using (doc)
         {
-            return Ok(new { acknowledged = true });
-        }
+            var root = doc.RootElement;
 
-        // 4. Correlate Dojah's reference back to OUR KycVerification id.
-        //    The submit call passes our kyc id as the reference_id, so this
-        //    round-trips cleanly. If it isn't a Guid, we can't process it.
-        if (!Guid.TryParse(payload.ReferenceId, out var kycId))
-        {
-            logger.LogWarning("Dojah webhook reference_id is not a valid kyc id: {Ref}", payload.ReferenceId);
-            return Ok(new { acknowledged = true });
-        }
+            if (!root.TryGetProperty("reference_id", out var refProp) ||
+                !Guid.TryParse(refProp.GetString(), out var kycId))
+            {
+                logger.LogWarning("Dojah webhook references an unknown kyc id.");
+                return Ok(new { acknowledged = true });
+            }
 
-        // 5. 'Completed' only means the session finished - it does NOT mean passed.
-        //    We inspect the per-step statuses below.
-        if (payload.VerificationStatus is not null &&
-            !string.Equals(payload.VerificationStatus, "Completed", StringComparison.OrdinalIgnoreCase))
-        {
-            logger.LogInformation("Dojah session did not complete: {Status}", payload.VerificationStatus);
-            return Ok(new { acknowledged = true });
-        }
+            // Only terminal statuses are applied; Ongoing/Pending get a follow-up event.
+            var lifecycle = root.TryGetProperty("verification_status", out var vs)
+                ? vs.GetString()?.Trim().ToLowerInvariant()
+                : null;
+            if (lifecycle is not ("completed" or "failed" or "abandoned"))
+            {
+                logger.LogInformation("Dojah session {Ref} not final, skipping: {Status}",
+                    refProp.GetString(), lifecycle);
+                return Ok(new { acknowledged = true });
+            }
 
-        var providerRef = payload.ReferenceId;
-        var completedAt = DateTimeOffset.UtcNow;
+            // Completed means finished, not passed — check the step statuses.
+            var passed = root.TryGetProperty("status", out var statusProp) &&
+                statusProp.ValueKind == JsonValueKind.True;
 
-        // 6. Dispatch one Apply command per verification half that the flow ran.
-        //    Dojah nests per-step outcomes under the event; we map the NIN identity
-        //    and the selfie (facial) check. Missing/malformed steps are skipped.
-        var results = new List<(string Kind, bool Passed)>();
+            var providerRef = refProp.GetString()!;
+            DateTimeOffset? completedAt = null;
+            if (root.TryGetProperty("created_at", out var createdProp) &&
+                DateTimeOffset.TryParse(createdProp.GetString(), out var created))
+            {
+                completedAt = created;
+            }
 
-        var government = payload.Data?.GovernmentData;
-        if (government is not null)
-        {
-            results.Add(("identity", government.Status == true));
-        }
-
-        var selfie = payload.Data?.SelfieData ?? payload.Data?.FaceMatchData;
-        if (selfie is not null)
-        {
-            results.Add(("facial", selfie.Status == true));
-        }
-
-        foreach (var (kind, passed) in results)
-        {
             var cmd = new ApplyVerificationResultCommand(
                 KycVerificationId: kycId,
-                Kind: kind,
                 Passed: passed,
                 Provider: "dojah",
                 ProviderRef: providerRef,
@@ -102,10 +102,10 @@ public class DojahWebhookController(
             var outcome = await mediator.Send(cmd, ct);
             if (outcome.IsSuccess is false)
             {
-                logger.LogWarning("Apply {Kind} failed for {KycId}: {Error}", kind, kycId, outcome.Error);
+                logger.LogWarning("Apply verification result failed for {KycId}: {Error}", kycId, outcome.Error);
             }
-        }
 
-        return Ok(new { acknowledged = true });
+            return Ok(new { acknowledged = true });
+        }
     }
 }

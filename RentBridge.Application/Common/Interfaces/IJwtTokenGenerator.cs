@@ -1,4 +1,4 @@
-﻿using RentBridge.Domain.Aggregates.Users;
+﻿using RentBridge.Domain.Aggregates;
 using System;
 using System.Collections.Generic;
 using System.Text;

@@ -1,7 +1,9 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Common;
+using RentBridge.Domain.Entities;
+using RentBridge.Infrastructure.Persistence.Repositories;
 
 namespace RentBridge.Infrastructure.Persistence;
 
@@ -18,10 +20,15 @@ public class AppDbContext : DbContext
     public DbSet<Listing> Listings => Set<Listing>();
     public DbSet<Lease> Leases => Set<Lease>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        // Keyless result shape for the raw-SQL ledger time-series query.
+        modelBuilder.Entity<TransactionMetricsRow>().HasNoKey();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

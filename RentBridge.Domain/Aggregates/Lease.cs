@@ -1,8 +1,9 @@
 ﻿using RentBridge.Domain.Common;
+using RentBridge.Domain.Entities;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Aggregates;
 
 public class Lease : Entity<Guid>
 {
@@ -19,6 +20,8 @@ public class Lease : Entity<Guid>
     public DateTimeOffset? LegalGatePassed { get; private set; }
 
     public Agreement Agreement { get; private set; }   // owned entity
+
+    public string? LandlordPayoutRecipientCode { get; private set; }
 
     private readonly List<EscrowPayment> _escrowPayments = new();
     public IReadOnlyCollection<EscrowPayment> EscrowPayments => _escrowPayments;
@@ -37,14 +40,19 @@ public class Lease : Entity<Guid>
         Status = LeaseStatus.Initiated;
         CreatedAt = DateTimeOffset.UtcNow;
         Agreement = new Agreement(Id);
+        Raise(new LeaseCreated(Id));
     }
 
     public Result RequestInspection(Guid tenantUserId, DateTimeOffset preferredDate, string? note = null)
     {
+        if (Status is not (LeaseStatus.Initiated or LeaseStatus.InspectionRequested))
+            return Result.Fail("Inspection can only be requested before the inspection is confirmed.");
+
         if (_inspectionRequests.Any(r => r.Status == InspectionStatus.Pending))
             return Result.Fail("A pending inspection request already exists for this lease.");
 
         _inspectionRequests.Add(new InspectionRequest(tenantUserId, preferredDate, note));
+        Raise(new InspectionRequested(Id, preferredDate));
         return Result.Ok();
     }
 
@@ -55,11 +63,97 @@ public class Lease : Entity<Guid>
         return Result.Ok();
     }
 
-    public Result ConfirmInspection()
+    public Result ConfirmInspection(DateTimeOffset? scheduledDate = null, string? notes = null)
     {
         if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection to confirm.");
+
+        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        if (pending is null) return Result.Fail("No pending inspection request to confirm.");
+
+        var result = pending.Confirm(scheduledDate, notes);
+        if (!result.IsSuccess) return result;
+
         Status = LeaseStatus.InspectionConfirmed;
         InspectionGatePassed = DateTimeOffset.UtcNow;
+        Raise(new InspectionConfirmed(Id));
+        return Result.Ok();
+    }
+
+    public Result DeclinePendingInspection()
+    {
+        if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection flow to decline.");
+
+        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        if (pending is null) return Result.Fail("No pending inspection request to decline.");
+
+        var result = pending.Decline();
+        if (!result.IsSuccess) return result;
+
+        Status = LeaseStatus.Initiated;
+        Raise(new InspectionDeclined(Id));
+        return Result.Ok();
+    }
+
+    public Result CancelPendingInspection(Guid tenantUserId)
+    {
+        if (tenantUserId != TenantUserId)
+            return Result.Fail("Only the tenant on this lease can cancel their inspection request.");
+
+        if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection flow to cancel.");
+
+        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        if (pending is null) return Result.Fail("No pending inspection request to cancel.");
+
+        var result = pending.Cancel();
+        if (!result.IsSuccess) return result;
+
+        Status = LeaseStatus.Initiated;
+        Raise(new InspectionCancelled(Id));
+        return Result.Ok();
+    }
+
+    public Result RequestReschedule(Guid tenantUserId, DateTimeOffset newDate, string? note = null)
+    {
+        if (tenantUserId != TenantUserId)
+            return Result.Fail("Only the tenant on this lease can request a reschedule.");
+
+        if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("Inspection must be confirmed before rescheduling.");
+
+        var confirmed = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Confirmed);
+        if (confirmed is null) return Result.Fail("No confirmed inspection to reschedule.");
+
+        var result = confirmed.ProposeReschedule(newDate, note);
+        if (!result.IsSuccess) return result;
+
+        Raise(new InspectionRescheduleRequested(Id, newDate));
+        return Result.Ok();
+    }
+
+    public Result ConfirmReschedule()
+    {
+        if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("No confirmed inspection to reschedule.");
+
+        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.ReschedulePending);
+        if (pending is null) return Result.Fail("No pending reschedule request.");
+
+        var result = pending.AcceptReschedule();
+        if (!result.IsSuccess) return result;
+
+        Raise(new InspectionRescheduled(Id, pending.ScheduledDate ?? pending.PreferredDate));
+        return Result.Ok();
+    }
+
+    public Result RejectReschedule()
+    {
+        if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("No confirmed inspection to reschedule.");
+
+        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.ReschedulePending);
+        if (pending is null) return Result.Fail("No pending reschedule request.");
+
+        var result = pending.RejectReschedule();
+        if (!result.IsSuccess) return result;
+
+        Raise(new InspectionRescheduleRejected(Id));
         return Result.Ok();
     }
 
@@ -69,6 +163,14 @@ public class Lease : Entity<Guid>
         AssignedLawyerId = lawyerId;
         Status = LeaseStatus.LegalReview;
         Raise(new LawyerAssigned(Id, lawyerId));
+        return Result.Ok();
+    }
+
+    public Result BeginLegalReview()
+    {
+        if (Status == LeaseStatus.LegalReview) return Result.Ok();
+        if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("Inspection must be confirmed before legal review.");
+        Status = LeaseStatus.LegalReview;
         return Result.Ok();
     }
 
@@ -101,7 +203,7 @@ public class Lease : Entity<Guid>
         if (!result.IsSuccess) return result;
 
         Status = Agreement.IsFullySigned
-            ? LeaseStatus.AwaitingSignatures
+            ? LeaseStatus.FullySigned
             : LeaseStatus.PartiallySigned;
 
         if (Agreement.IsFullySigned)
@@ -123,9 +225,22 @@ public class Lease : Entity<Guid>
         return Result.Ok();
     }
 
-    public Result MarkReleasing()
+    public Result SetLandlordPayoutRecipientCode(string recipientCode)
+    {
+        if (Status is LeaseStatus.Released or LeaseStatus.Releasing)
+            return Result.Fail("Payout recipient cannot change once escrow is releasing or released.");
+        if (string.IsNullOrWhiteSpace(recipientCode))
+            return Result.Fail("Recipient code cannot be empty.");
+
+        LandlordPayoutRecipientCode = recipientCode.Trim();
+        return Result.Ok();
+    }
+
+    public Result BeginRelease()
     {
         if (Status != LeaseStatus.FundedInEscrow) return Result.Fail("Must be funded to release.");
+        if (string.IsNullOrWhiteSpace(LandlordPayoutRecipientCode))
+            return Result.Fail("Landlord payout recipient is not set for this lease.");
         Status = LeaseStatus.Releasing;
         return Result.Ok();
     }
@@ -143,6 +258,14 @@ public class Lease : Entity<Guid>
     }
 }
 
+public record LeaseCreated(Guid LeaseId) : IDomainEvent;
+public record InspectionRequested(Guid LeaseId, DateTimeOffset PreferredDate) : IDomainEvent;
+public record InspectionRescheduleRequested(Guid LeaseId, DateTimeOffset ProposedDate) : IDomainEvent;
+public record InspectionRescheduled(Guid LeaseId, DateTimeOffset NewDate) : IDomainEvent;
+public record InspectionRescheduleRejected(Guid LeaseId) : IDomainEvent;
+public record InspectionCancelled(Guid LeaseId) : IDomainEvent;
+public record InspectionConfirmed(Guid LeaseId) : IDomainEvent;
+public record InspectionDeclined(Guid LeaseId) : IDomainEvent;
 public record LawyerAssigned(Guid LeaseId, Guid LawyerId) : IDomainEvent;
 public record AgreementCertified(Guid LeaseId) : IDomainEvent;
 public record AgreementFullySigned(Guid LeaseId) : IDomainEvent;

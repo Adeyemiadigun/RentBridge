@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using RentBridge.Domain.Aggregates.Users;
+using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Enums;
 
 namespace RentBridge.Infrastructure.Persistence.Configurations;
@@ -18,6 +18,7 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
         b.Property(l => l.Status)
          .HasConversion<string>()
          .HasMaxLength(30);
+
 
         b.OwnsOne(l => l.Price, p =>
         {

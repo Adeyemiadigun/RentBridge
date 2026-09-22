@@ -1,7 +1,7 @@
 ﻿using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 
-namespace RentBridge.Domain.Aggregates.Users;
+namespace RentBridge.Domain.Entities;
 
 /// <summary>
 /// Owned child of the User aggregate (1:1, only present for lawyers).
@@ -12,6 +12,7 @@ public class LawyerProfile
 {
     public string BarNumber { get; private set; }
     public LawyerStatus Status { get; private set; }
+    public DateTimeOffset? LastAssignedAt { get; private set; }
 
     private LawyerProfile() { }   // EF
 
@@ -23,8 +24,9 @@ public class LawyerProfile
 
     public Result Verify()
     {
-        if (Status != LawyerStatus.Pending)
-            return Result.Fail("Only pending lawyers can be verified.");
+        // Suspended lawyers can be re-verified (re-instated) after review.
+        if (Status is not (LawyerStatus.Pending or LawyerStatus.Suspended))
+            return Result.Fail("Only pending or suspended lawyers can be verified.");
         Status = LawyerStatus.Verified;
         return Result.Ok();
     }
@@ -44,4 +46,6 @@ public class LawyerProfile
         Status = LawyerStatus.Rejected;
         return Result.Ok();
     }
+
+    public void MarkAssigned() => LastAssignedAt = DateTimeOffset.UtcNow;
 }
