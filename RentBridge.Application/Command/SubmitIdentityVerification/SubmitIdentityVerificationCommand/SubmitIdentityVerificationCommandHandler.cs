@@ -52,6 +52,12 @@ public sealed class SubmitIdentityVerificationCommandHandler(
                 return Result<KycSubmissionResponse>.Fail(ex.Message);
             }
 
+            if (provider.SupportsSdkSession is false)
+            {
+                return Result<KycSubmissionResponse>.Fail(
+                    $"{provider.ProviderName} does not support the app SDK flow.");
+            }
+
             // One active verification per user at a time.
             var hasActive = await _unitOfWork.Repository<KycVerification>()
                 .AnyAsync(x => x.UserId == userId && x.Status == KycVerificationStatus.Pending, cancellationToken);
@@ -63,49 +69,8 @@ public sealed class SubmitIdentityVerificationCommandHandler(
             var kyc = new KycVerification(user.Id, nin.Value);
             _unitOfWork.Repository<KycVerification>().Add(kyc);
 
-            if (provider.SupportsSyncVerification)
-            {
-                if (string.IsNullOrWhiteSpace(request.SelfieImage))
-                {
-                    return Result<KycSubmissionResponse>.Fail(
-                        $"A selfie image is required for {provider.ProviderName} verification.");
-                }
-
-                var verify = await provider.VerifyAsync(
-                    new IdentityVerificationRequest(
-                        kyc.Id, nin.Value.Value, request.SelfieImage,
-                        request.FirstName, request.LastName),
-                    cancellationToken);
-                if (verify.IsSuccess is false)
-                {
-                    // Not persisted (no SaveChanges yet): record stays uncreated, user can retry.
-                    return Result<KycSubmissionResponse>.Fail(verify.Error);
-                }
-
-                var created = VerificationResult.Create(
-                    provider.ProviderName, verify.Value.ProviderRef,
-                    verify.Value.Passed, verify.Value.CompletedAt);
-                if (created.IsSuccess is false)
-                {
-                    return Result<KycSubmissionResponse>.Fail(created.Error);
-                }
-
-                var apply = kyc.ApplyResult(created.Value);
-                if (apply.IsSuccess is false)
-                {
-                    return Result<KycSubmissionResponse>.Fail(apply.Error ?? "Could not apply verification result.");
-                }
-
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-                logger.LogInformation("KYC {KycId} verified via {Provider} for user {UserId}: passed={Passed}",
-                    kyc.Id, provider.ProviderName, user.Id, verify.Value.Passed);
-
-                return Result<KycSubmissionResponse>.Ok(new KycSubmissionResponse(
-                    kyc.Id, provider.ProviderName, verify.Value.Passed,
-                    verify.Value.Confidence, verify.Value.ProviderRef, null));
-            }
-
-            // SDK flow (e.g. Smile): mint the client session; verdict arrives via webhook.
+            // Build the frontend widget bootstrap. Biometrics are captured
+            // on-device by the vendor SDK; the verdict arrives via webhook.
             var session = await provider.CreateSdkSessionAsync(kyc.Id, nin.Value.Value, cancellationToken);
             if (session.IsSuccess is false)
             {

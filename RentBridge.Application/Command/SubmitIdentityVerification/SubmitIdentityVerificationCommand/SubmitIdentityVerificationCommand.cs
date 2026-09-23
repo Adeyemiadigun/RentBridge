@@ -5,13 +5,12 @@ namespace RentBridge.Application.Command.SubmitIdentityVerification;
 
 /// <summary>
 /// Starts an identity verification with the active provider (default Dojah).
-/// Sync providers (Dojah) verify NIN+selfie immediately; SDK providers
-/// (Smile) mint a client session and the verdict arrives via webhook.
+/// The backend validates the NIN, creates the pending KYC record, and returns
+/// the SDK/widget bootstrap. The frontend opens the vendor widget, which
+/// captures biometrics on-device; the verdict arrives via webhook.
+/// No images travel through our API.
 /// </summary>
 public sealed record SubmitIdentityVerificationCommand(
     string Nin,
-    string? SelfieImage = null,
-    string? FirstName = null,
-    string? LastName = null,
     string? Provider = null
 ) : IRequest<Result<KycSubmissionResponse>>;

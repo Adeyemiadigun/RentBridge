@@ -2,8 +2,10 @@ namespace RentBridge.Infrastructure.Verification.Providers.Dojah;
 
 /// <summary>
 /// Dojah configuration. Binds the "Dojah" section.
-/// Production via Dojah__AppId / Dojah__SecretKey env vars.
-/// See https://docs.dojah.io/api-reference/get-started/authentication
+/// Verification runs in the frontend EasyOnboard widget, so the backend only
+/// needs the widget bootstrap values plus webhook/API secrets.
+/// Production via Dojah__AppId / Dojah__PublicKey / Dojah__WidgetId env vars.
+/// See https://docs.dojah.io/api-reference/hosted-flows-easyonboard/launch-a-flow
 /// </summary>
 public sealed class DojahOptions
 {
@@ -12,36 +14,32 @@ public sealed class DojahOptions
     /// <summary>App ID from Developers → Configuration in the Dojah dashboard.</summary>
     public string AppId { get; set; } = string.Empty;
 
-    /// <summary>Secret key, sent raw in the Authorization header (never "Bearer").</summary>
-    public string SecretKey { get; set; } = string.Empty;
+    /// <summary>Public key (p_key) — safe for client-side widget use.</summary>
+    public string PublicKey { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Dedicated webhook signing secret from the Dojah dashboard (Developers → webhooks).
-    /// If set, it is used for x-dojah-signature validation instead of SecretKey.
-    /// </summary>
-    public string WebhookSecret { get; set; } = string.Empty;
+    /// <summary>Published EasyOnboard flow id (config.widget_id for Connect).</summary>
+    public string WidgetId { get; set; } = string.Empty;
+
+    /// <summary>Secret key for server-side REST calls (raw, never "Bearer").</summary>
+    public string SecretKey { get; set; } = string.Empty;
 
     /// <summary>Legacy alias for SecretKey.</summary>
     public string ApiKey { get; set; } = string.Empty;
 
-    /// <summary>Explicit base URL override. Otherwise derived from Environment.</summary>
-    public string BaseUrl { get; set; } = string.Empty;
-
-    /// <summary>"sandbox" → https://sandbox.dojah.io, "production" → https://api.dojah.io.</summary>
-    public string Environment { get; set; } = "sandbox";
-
     /// <summary>
-    /// Minimum selfie-match score (50–100) for match=true. Dojah defaults to 90.
+    /// Dedicated webhook signing secret from the Dojah dashboard.
+    /// If set, it is used for x-dojah-signature validation instead of SecretKey.
     /// </summary>
-    public int Threshold { get; set; } = 90;
+    public string WebhookSecret { get; set; } = string.Empty;
+
+    /// <summary>"sandbox" or "production". Selects the widget environment.</summary>
+    public string Environment { get; set; } = "sandbox";
 
     public string ResolvedSecretKey =>
         !string.IsNullOrWhiteSpace(SecretKey) ? SecretKey : ApiKey;
 
-    public string ResolvedBaseUrl =>
-        !string.IsNullOrWhiteSpace(BaseUrl)
-            ? BaseUrl.TrimEnd('/')
-            : string.Equals(Environment?.Trim(), "production", StringComparison.OrdinalIgnoreCase)
-                ? "https://api.dojah.io"
-                : "https://sandbox.dojah.io";
+    public string ResolvedEnvironment =>
+        string.Equals(Environment?.Trim(), "production", StringComparison.OrdinalIgnoreCase)
+            ? "production"
+            : "sandbox";
 }

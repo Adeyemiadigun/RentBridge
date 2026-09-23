@@ -28,9 +28,11 @@ public interface IIdentityVerificationProvider
         IdentityVerificationRequest request, CancellationToken ct);
 
     /// <summary>
-    /// Mints a short-lived client session/token for SDK flows where the
-    /// device submits biometrics directly to the vendor (Smile ID).
+    /// Builds the client bootstrap for SDK/widget flows (Dojah EasyOnboard,
+    /// Smile ID SDK): the frontend opens the vendor widget with the returned
+    /// data, captures biometrics on-device, and the verdict arrives later on
+    /// the provider webhook. No images travel through our API.
     /// </summary>
-    Task<Result<string>> CreateSdkSessionAsync(
+    Task<Result<SdkSession>> CreateSdkSessionAsync(
         Guid kycVerificationId, string nin, CancellationToken ct);
 }

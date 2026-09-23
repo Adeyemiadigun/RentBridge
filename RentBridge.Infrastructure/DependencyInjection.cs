@@ -43,7 +43,7 @@ public static class DependencyInjection
             configuration.GetSection(VerificationOptions.SectionName));
         services.Configure<DojahOptions>(
             configuration.GetSection(DojahOptions.SectionName));
-        services.AddHttpClient<DojahIdentityVerificationProvider>();
+        services.AddScoped<DojahIdentityVerificationProvider>();
         services.AddHttpClient<SmileIdentityVerificationProvider>();
         services.AddScoped<IIdentityVerificationProvider>(
             sp => sp.GetRequiredService<DojahIdentityVerificationProvider>());
