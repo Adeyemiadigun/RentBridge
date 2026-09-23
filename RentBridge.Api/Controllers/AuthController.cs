@@ -18,7 +18,8 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
 {
     /// <summary>
     /// Registers a new user. Pass the role as one of: Landlord, Tenant,
-    /// Caretaker, Agent, Lawyer, Admin. Lawyers must include a BarNumber.
+    /// Caretaker, Agent, Lawyer. Lawyers must include a BarNumber.
+    /// Admin accounts cannot be created here (seeded + default-admin only).
     /// </summary>
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] registerUserCommand command, CancellationToken ct)

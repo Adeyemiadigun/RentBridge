@@ -180,4 +180,20 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
 
         return Ok(result.Value);
     }
+
+    /// <summary>
+    /// Creates a new admin account. Only the seeded default admin
+    /// (Admin:Email) may call this; public registration never creates admins.
+    /// </summary>
+    [HttpPost("admins")]
+    public async Task<IActionResult> CreateAdmin([FromBody] CreateAdminCommand command, CancellationToken ct)
+    {
+        var result = await mediator.Send(command, ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { userId = result.Value });
+    }
 }
