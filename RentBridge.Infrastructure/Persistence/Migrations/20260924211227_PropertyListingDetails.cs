@@ -111,27 +111,24 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                 maxLength: 8,
                 nullable: true);
 
-            migrationBuilder.CreateTable(
-                name: "TransactionMetricsRow",
-                columns: table => new
-                {
-                    Period = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Funded = table.Column<decimal>(type: "numeric", nullable: false),
-                    PaidOut = table.Column<decimal>(type: "numeric", nullable: false),
-                    Commission = table.Column<decimal>(type: "numeric", nullable: false),
-                    LegalFees = table.Column<decimal>(type: "numeric", nullable: false),
-                    FailedAttempts = table.Column<long>(type: "bigint", nullable: false)
-                },
-                constraints: table =>
-                {
-                });
+            // TransactionMetricsRow is a keyless SqlQueryRaw<> projection (LedgerRepository).
+            // A physical table with this name already exists on the production database from an
+            // earlier deploy, so create it idempotently rather than via CreateTable.
+            migrationBuilder.Sql(
+                "CREATE TABLE IF NOT EXISTS \"TransactionMetricsRow\" (\n" +
+                "    \"Period\" timestamp with time zone NOT NULL,\n" +
+                "    \"Funded\" numeric NOT NULL,\n" +
+                "    \"PaidOut\" numeric NOT NULL,\n" +
+                "    \"Commission\" numeric NOT NULL,\n" +
+                "    \"LegalFees\" numeric NOT NULL,\n" +
+                "    \"FailedAttempts\" bigint NOT NULL\n" +
+                ");");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "TransactionMetricsRow");
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"TransactionMetricsRow\";");
 
             migrationBuilder.DropColumn(
                 name: "amenities",
