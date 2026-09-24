@@ -29,6 +29,9 @@ public class ListingRepository : IListingRepository
     {
         var resolvedStatus = status ?? ListingStatus.Published;
 
+        // Project an anonymous shape in SQL (EF Core cannot translate the
+        // ListingSearchItem record constructor, which surfaced as a 500 on
+        // GET /listings/search). The record is built in memory afterwards.
         var query = _context.Set<Listing>().AsNoTracking()
             .Where(listing => listing.Status == resolvedStatus
                 && (minPrice == null || listing.Price.Amount >= minPrice)
@@ -40,28 +43,42 @@ public class ListingRepository : IListingRepository
                         && (area == null || property.PropertyAddress.Area == area)),
                 listing => listing.PropertyId,
                 property => property.Id,
-                (listing, property) => new ListingSearchItem(
-                    listing.Id,
-                    listing.Title,
-                    listing.Description,
-                    listing.Price.Amount,
-                    listing.Price.Currency,
-                    listing.Status,
-                    listing.CoverImageKey,
-                    listing.CreatedAt,
-                    listing.PublishedAt,
-                    listing.PropertyId,
-                    property.PropertyAddress.Street,
-                    property.PropertyAddress.City,
-                    property.PropertyAddress.Area,
-                    property.PropertyAddress.State))
-            .OrderByDescending(x => x.PublishedAt);
+                (listing, property) => new { listing, property })
+            .OrderByDescending(x => x.listing.PublishedAt);
 
         var totalCount = await query.CountAsync(ct);
-        var items = await query
+
+        var rows = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(ct);
+
+        var items = rows
+            .Select(x => new ListingSearchItem(
+                x.listing.Id,
+                x.listing.Title,
+                x.listing.Description,
+                x.listing.Price.Amount,
+                x.listing.Price.Currency,
+                x.listing.Status,
+                x.listing.CoverImageKey,
+                x.listing.CreatedAt,
+                x.listing.PublishedAt,
+                x.listing.PropertyId,
+                x.listing.ListingType,
+                x.listing.PaymentPlan,
+                x.listing.CautionFee?.Amount,
+                x.listing.RealHouseFee?.Amount,
+                x.listing.AgentFee?.Amount,
+                x.property.PropertyAddress.Street,
+                x.property.PropertyAddress.City,
+                x.property.PropertyAddress.Area,
+                x.property.PropertyAddress.State,
+                x.property.PropertyType,
+                x.property.Bedrooms,
+                x.property.Bathrooms,
+                x.property.Amenities))
+            .ToList();
 
         return new PagedResult<ListingSearchItem>(page, pageSize, totalCount, items);
     }

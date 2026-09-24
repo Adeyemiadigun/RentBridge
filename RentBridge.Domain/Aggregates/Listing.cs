@@ -11,6 +11,12 @@ public class Listing : Entity<Guid>
     public string Title { get; private set; }
     public string? Description { get; private set; }
     public Money Price { get; private set; }
+    public ListingType ListingType { get; private set; } = ListingType.Rent;
+    public PaymentPlan PaymentPlan { get; private set; } = PaymentPlan.Outright;
+    public Money? CautionFee { get; private set; }
+    public string? OtherExpenses { get; private set; }
+    public Money? RealHouseFee { get; private set; }
+    public Money? AgentFee { get; private set; }
     public ListingStatus Status { get; private set; }
     public string? CoverImageKey { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -18,8 +24,18 @@ public class Listing : Entity<Guid>
 
     private Listing() { }
 
-    public Listing(Guid ownerUserId, Guid propertyId, string title, Money price, string? description = null)
-        : this()
+    public Listing(
+        Guid ownerUserId,
+        Guid propertyId,
+        string title,
+        Money price,
+        string? description = null,
+        ListingType listingType = ListingType.Rent,
+        PaymentPlan paymentPlan = PaymentPlan.Outright,
+        Money? cautionFee = null,
+        string? otherExpenses = null,
+        Money? realHouseFee = null,
+        Money? agentFee = null) : this()
     {
         Id = Guid.NewGuid();
         OwnerUserId = ownerUserId;
@@ -27,6 +43,12 @@ public class Listing : Entity<Guid>
         Title = title;
         Price = price;
         Description = description;
+        ListingType = listingType;
+        PaymentPlan = paymentPlan;
+        CautionFee = cautionFee;
+        OtherExpenses = otherExpenses;
+        RealHouseFee = realHouseFee;
+        AgentFee = agentFee;
         Status = ListingStatus.Draft;
         CreatedAt = DateTimeOffset.UtcNow;
     }
