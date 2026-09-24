@@ -14,4 +14,9 @@ public sealed record PropertyItem(
     string Area,
     string State,
     bool IsVerified,
+    string? PropertyType,
+    int Bedrooms,
+    int Bathrooms,
+    string? AvailableFrom,
+    IReadOnlyList<string> Amenities,
     IReadOnlyList<OwnershipDocumentItem> Documents);

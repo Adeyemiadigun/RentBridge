@@ -25,7 +25,17 @@ namespace RentBridge.Application.Command.Property
                 return Result<Guid>.Fail("User is not allowed to create property");
             }
 
-            var property = new PropertyAggregate(user.Id, request.Street, request.City, request.Area, request.State);
+            var property = new PropertyAggregate(
+                user.Id,
+                request.Street,
+                request.City,
+                request.Area,
+                request.State,
+                request.PropertyType,
+                request.Bedrooms,
+                request.Bathrooms,
+                request.AvailableFrom,
+                request.Amenities);
 
             if (request.DocumentUrls.Count > 0)
             {

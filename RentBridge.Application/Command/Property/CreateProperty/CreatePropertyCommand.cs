@@ -8,9 +8,15 @@ namespace RentBridge.Application.Command.Property
 {
     
 
-    public sealed record CreatePropertyCommand(string Street,
+    public sealed record CreatePropertyCommand(
+        string Street,
         string City,
         string Area,
         string State,
-        List<string> DocumentUrls) : IRequest<Result<Guid>>;
+        List<string> DocumentUrls,
+        string? PropertyType = null,
+        int Bedrooms = 0,
+        int Bathrooms = 0,
+        string? AvailableFrom = null,
+        List<string>? Amenities = null) : IRequest<Result<Guid>>;
 }

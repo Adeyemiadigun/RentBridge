@@ -13,7 +13,16 @@ public sealed record ListingSearchItem(
     DateTimeOffset CreatedAt,
     DateTimeOffset? PublishedAt,
     Guid PropertyId,
+    ListingType ListingType,
+    PaymentPlan PaymentPlan,
+    decimal? CautionFeeAmount,
+    decimal? RealHouseFeeAmount,
+    decimal? AgentFeeAmount,
     string Street,
     string City,
     string Area,
-    string State);
+    string State,
+    string? PropertyType,
+    int Bedrooms,
+    int Bathrooms,
+    IReadOnlyList<string> Amenities);
