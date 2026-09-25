@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentBridge.Application.Command.Auth;
 using RentBridge.Application.Command.RegisterUser;
+using RentBridge.Application.Query.Auth;
 
 namespace RentBridge.Api.Controllers;
 
@@ -69,5 +70,23 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
         }
 
         return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// Returns the caller's profile (name, email, phone, role, KYC status).
+    /// The JWT only carries claims; this endpoint is the real profile source.
+    /// </summary>
+    [Authorize]
+    [HttpGet("me")]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Me(CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetMyProfileQuery(), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
     }
 }

@@ -96,6 +96,22 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Lists properties with their ownership documents for manual review:
+    /// admins see all properties, lawyers only their assigned queue.
+    /// </summary>
+    [HttpGet("reviews")]
+    public async Task<IActionResult> Reviews(CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetPropertyReviewsQuery(), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
     /// Lists the current user's properties (landlord/caretaker/agent)
     /// with pagination and optional filters.
     /// </summary>

@@ -41,6 +41,28 @@ public sealed class CreatePropertyCommandValidator
             .WithMessage("Document URL cannot be empty.")
             .Must(BeValidUrl)
             .WithMessage("Document URL must be a valid URL.");
+
+        RuleFor(x => x.Bedrooms)
+            .GreaterThanOrEqualTo(0)
+            .WithMessage("Bedrooms cannot be negative.");
+
+        RuleFor(x => x.Bathrooms)
+            .GreaterThanOrEqualTo(0)
+            .WithMessage("Bathrooms cannot be negative.");
+
+        RuleFor(x => x.PropertyType)
+            .MaximumLength(60)
+            .WithMessage("Property type cannot exceed 60 characters.");
+
+        RuleFor(x => x.AvailableFrom)
+            .MaximumLength(80)
+            .WithMessage("Available from cannot exceed 80 characters.");
+
+        RuleForEach(x => x.Amenities)
+            .NotEmpty()
+            .WithMessage("Amenity cannot be empty.")
+            .MaximumLength(120)
+            .WithMessage("Amenity cannot exceed 120 characters.");
     }
 
     private static bool BeValidUrl(string url)

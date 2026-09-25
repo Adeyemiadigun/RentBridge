@@ -29,11 +29,10 @@ namespace RentBridge.Application.Command.Listing
                 logger.LogInformation("User {userId} is not the owner of property {propertyId}", user.Id, request.PropertyId);
                 return Result<Guid>.Fail("You can only list your own property");
             }
-            if(!property.IsVerified)
-            {
-                logger.LogInformation("Property Has not been Verified");
-                return Result<Guid>.Fail("Property Has not been Verified");
-            }
+            // Draft listing is allowed before ownership verification; the
+            // PublishListingCommand stays gated on property verification, so
+            // the owner submits the property + docs, a lawyer verifies, and
+            // then the draft can be published.
             var moneyResult = Money.Naira(request.PriceAmount);
             if (!moneyResult.IsSuccess)
             {
@@ -41,7 +40,59 @@ namespace RentBridge.Application.Command.Listing
                 return Result<Guid>.Fail(moneyResult.Error!);
             }
 
-            var propertyListing = new ListingAggreagte(user.Id,property.Id,request.Title,moneyResult.Value,request.Description);
+            Money? cautionFee = null;
+            if (request.CautionFeeAmount.HasValue)
+            {
+                var feeResult = Money.Naira(request.CautionFeeAmount.Value);
+                if (!feeResult.IsSuccess)
+                {
+                    logger.LogInformation("Invalid caution fee: {error}", feeResult.Error);
+                    return Result<Guid>.Fail(feeResult.Error!);
+                }
+                cautionFee = feeResult.Value;
+            }
+
+            Money? realHouseFee = null;
+            if (request.RealHouseFeeAmount.HasValue)
+            {
+                var feeResult = Money.Naira(request.RealHouseFeeAmount.Value);
+                if (!feeResult.IsSuccess)
+                {
+                    logger.LogInformation("Invalid real house fee: {error}", feeResult.Error);
+                    return Result<Guid>.Fail(feeResult.Error!);
+                }
+                realHouseFee = feeResult.Value;
+            }
+
+            Money? agentFee = null;
+            if (request.AgentFeeAmount.HasValue)
+            {
+                var feeResult = Money.Naira(request.AgentFeeAmount.Value);
+                if (!feeResult.IsSuccess)
+                {
+                    logger.LogInformation("Invalid agent fee: {error}", feeResult.Error);
+                    return Result<Guid>.Fail(feeResult.Error!);
+                }
+                agentFee = feeResult.Value;
+            }
+
+            var propertyListing = new ListingAggreagte(
+                user.Id,
+                property.Id,
+                request.Title,
+                moneyResult.Value,
+                request.Description,
+                request.ListingType,
+                request.PaymentPlan,
+                cautionFee,
+                request.OtherExpenses,
+                realHouseFee,
+                agentFee);
+
+            if (request.ImageUrls is not null)
+            {
+                propertyListing.SetImages(request.ImageUrls);
+            }
 
              unitOfWork.Repository<ListingAggreagte>().Add(propertyListing);
 

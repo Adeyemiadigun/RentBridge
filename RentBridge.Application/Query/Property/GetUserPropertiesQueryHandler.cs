@@ -49,6 +49,11 @@ public class GetUserPropertiesQueryHandler(
                 p.PropertyAddress.Area,
                 p.PropertyAddress.State,
                 p.IsVerified,
+                p.PropertyType,
+                p.Bedrooms,
+                p.Bathrooms,
+                p.AvailableFrom,
+                p.Amenities,
                 p.Documents.Select(d => new OwnershipDocumentItem(d.Id, d.Status, d.FileKey)).ToList()))
             .ToList();
 

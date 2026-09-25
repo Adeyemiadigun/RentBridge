@@ -2,7 +2,11 @@ using RentBridge.Domain.Enums;
 
 namespace RentBridge.Application.Dtos.Listings;
 
-public sealed record ListingSearchItem(
+/// <summary>
+/// A single published listing with its property and owner details,
+/// returned by GET /listings/{listingId}.
+/// </summary>
+public sealed record ListingDetailItem(
     Guid Id,
     string Title,
     string? Description,
@@ -26,4 +30,9 @@ public sealed record ListingSearchItem(
     string? PropertyType,
     int Bedrooms,
     int Bathrooms,
-    IReadOnlyList<string> Amenities);
+    string? AvailableFrom,
+    IReadOnlyList<string> Amenities,
+    Guid OwnerUserId,
+    string OwnerName,
+    string? OwnerEmail,
+    bool OwnerVerified);

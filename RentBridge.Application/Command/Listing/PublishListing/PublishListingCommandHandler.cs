@@ -25,20 +25,25 @@ namespace RentBridge.Application.Command.Listing
                 logger.LogInformation("Listing {listingId} not found", request.ListingId);
                 return Result<Guid>.Fail("Listing not found");
             }
-            if (listing.OwnerUserId != user.Id)
+            if (listing.OwnerUserId != user.Id && user.Role != RentBridge.Domain.Enums.UserRole.Admin)
             {
                 logger.LogInformation("User {userId} is not the owner of listing {listingId}", user.Id, request.ListingId);
                 return Result<Guid>.Fail("You can only publish your own listing");
             }
-            if (!user.IdentityVerified)
+            // Owner onboarding gates only apply to the publisher; an admin moderating
+            // another owner's listing acts on behalf of the platform.
+            if (user.Role != RentBridge.Domain.Enums.UserRole.Admin)
             {
-                logger.LogInformation("User {userId} is not identity verified", user.Id);
-                return Result<Guid>.Fail("Your identity must be verified before you can publish a listing");
-            }
-            if (user.PayoutAccount is not { IsActive: true })
-            {
-                logger.LogInformation("User {userId} has no payout account", user.Id);
-                return Result<Guid>.Fail("Add a verified payout bank account before you can publish a listing");
+                if (!user.IdentityVerified)
+                {
+                    logger.LogInformation("User {userId} is not identity verified", user.Id);
+                    return Result<Guid>.Fail("Your identity must be verified before you can publish a listing");
+                }
+                if (user.PayoutAccount is not { IsActive: true })
+                {
+                    logger.LogInformation("User {userId} has no payout account", user.Id);
+                    return Result<Guid>.Fail("Add a verified payout bank account before you can publish a listing");
+                }
             }
 
             var property = await unitOfWork.Repository<Domain.Aggregates.Property>().FirstOrDefault(p => p.Id == listing.PropertyId, cancellationToken);

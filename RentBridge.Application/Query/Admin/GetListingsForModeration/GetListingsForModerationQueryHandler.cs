@@ -8,6 +8,7 @@ using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 using ListingAggregate = RentBridge.Domain.Aggregates.Listing;
 using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
+using UserAggregate = RentBridge.Domain.Aggregates.User;
 
 namespace RentBridge.Application.Query.Admin;
 
@@ -46,20 +47,40 @@ public sealed class GetListingsForModerationQueryHandler(
         var propertyIds = page.Items.Select(l => l.PropertyId).Distinct().ToList();
         var properties = await unitOfWork.Repository<PropertyAggregate>()
             .FindAsync(p => propertyIds.Contains(p.Id), cancellationToken);
-        var verifiedByPropertyId = properties.ToDictionary(p => p.Id, p => p.IsVerified);
+        var propertiesById = properties.ToDictionary(p => p.Id);
+
+        var ownerIds = page.Items.Select(l => l.OwnerUserId).Distinct().ToList();
+        var ownerUsers = await unitOfWork.Repository<UserAggregate>()
+            .FindAsync(u => ownerIds.Contains(u.Id), cancellationToken);
+        var ownersById = ownerUsers.ToDictionary(u => u.Id, u => u);
 
         var items = page.Items
-            .Select(l => new ListingModerationItem(
-                l.Id,
-                l.Title,
-                l.Price.Amount,
-                l.Price.Currency,
-                l.Status,
-                l.OwnerUserId,
-                l.PropertyId,
-                verifiedByPropertyId.GetValueOrDefault(l.PropertyId, false),
-                l.CreatedAt,
-                l.PublishedAt))
+            .Select(l =>
+            {
+                var property = propertiesById.GetValueOrDefault(l.PropertyId);
+                var owner = ownersById.GetValueOrDefault(l.OwnerUserId);
+                var ownerName = string.IsNullOrWhiteSpace(owner?.FirstName)
+                    ? (owner?.Email.Value ?? string.Empty)
+                    : string.Join(" ", owner.FirstName, owner.LastName ?? string.Empty).Trim();
+                var locationParts = new List<string>();
+                if (!string.IsNullOrWhiteSpace(property?.PropertyAddress.Area))
+                    locationParts.Add(property.PropertyAddress.Area);
+                if (!string.IsNullOrWhiteSpace(property?.PropertyAddress.City))
+                    locationParts.Add(property.PropertyAddress.City);
+                return new ListingModerationItem(
+                    l.Id,
+                    l.Title,
+                    l.Price.Amount,
+                    l.Price.Currency,
+                    l.Status,
+                    l.OwnerUserId,
+                    ownerName,
+                    l.PropertyId,
+                    string.Join(", ", locationParts),
+                    property?.IsVerified == true,
+                    l.CreatedAt,
+                    l.PublishedAt);
+            })
             .ToList();
 
         return Result<PagedResult<ListingModerationItem>>.Ok(

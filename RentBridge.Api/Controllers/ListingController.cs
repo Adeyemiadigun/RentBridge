@@ -127,4 +127,23 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
 
         return Ok(result.Value);
     }
+
+    /// <summary>
+    /// Public listing detail (published only): the listing, its property
+    /// and the owning user's details, including beds/baths/amenities,
+    /// cover image and caution fee. 404 when not found or not published.
+    /// </summary>
+    [HttpGet("{listingId:guid}")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Detail(Guid listingId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetListingDetailQuery(listingId), ct);
+        if (result.IsSuccess is false)
+        {
+            return NotFound(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
+    }
 }

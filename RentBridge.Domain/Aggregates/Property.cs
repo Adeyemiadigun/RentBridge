@@ -12,18 +12,43 @@ public class Property : Entity<Guid>
     private readonly List<OwnershipDocument> _documents = new();
     public IReadOnlyCollection<OwnershipDocument> Documents => _documents;
 
+    public string? PropertyType { get; private set; }
+    public int Bedrooms { get; private set; }
+    public int Bathrooms { get; private set; }
+    public string? AvailableFrom { get; private set; }
+    public List<string> Amenities { get; private set; } = new();
+
     public bool IsVerified { get; private set; } = false;
 
     public Guid? VerificationLawyerId { get; private set; }
     public DateTimeOffset? VerifiedAt { get; private set; }
+    public string? VerifiedByUserId { get; private set; }
+    public string? VerifiedByName { get; private set; }
+    public string? VerifiedByRole { get; private set; }
 
     private Property() { }
 
-    public Property(Guid ownerUserId, string street, string city, string area, string state) : this()
+    public Property(
+        Guid ownerUserId,
+        string street,
+        string city,
+        string area,
+        string state,
+        string? propertyType = null,
+        int bedrooms = 0,
+        int bathrooms = 0,
+        string? availableFrom = null,
+        IEnumerable<string>? amenities = null) : this()
     {
         Id = Guid.NewGuid();
         OwnerUserId = ownerUserId;
         PropertyAddress = new Address(street, city, area, state);
+        PropertyType = propertyType;
+        Bedrooms = bedrooms;
+        Bathrooms = bathrooms;
+        AvailableFrom = availableFrom;
+        if (amenities is not null)
+            Amenities.AddRange(amenities.Where(a => !string.IsNullOrWhiteSpace(a)));
     }
 
 public void AddDocument(string fileKey)
@@ -54,7 +79,7 @@ public void AddDocument(string fileKey)
 
     public static bool CanCreateBy(UserRole role) => CanCreateProperty.Contains(role);
 
-    public Result VerifyDocument(Guid docId)
+    public Result VerifyDocument(Guid docId, string verifierUserId, string verifierName, string verifierRole)
     {
         var doc = _documents.FirstOrDefault(d => d.Id == docId);
 
@@ -65,18 +90,18 @@ public void AddDocument(string fileKey)
             return Result.Fail("Document is already verified.");
         if (doc.Status == OwnershipDocStatus.Rejected)
             return Result.Fail("Document is rejected.");
-        return doc.Verify();            // flip just this doc to Verified
+        return doc.Verify(verifierUserId, verifierName, verifierRole);            // flip just this doc to Verified
     }
 
-    public Result RejectDocument(Guid docId)
+    public Result RejectDocument(Guid docId, string? reason)
     {
         var doc = _documents.FirstOrDefault(d => d.Id == docId);
 
         if (doc is null) return Result.Fail("Document not found");
-        return doc.Reject();
+        return doc.Reject(reason);
     }
 
-    public Result MarkOwnershipVerified()
+    public Result MarkOwnershipVerified(string verifierUserId, string verifierName, string verifierRole)
     {
         if (IsVerified) return Result.Ok();
         if (_documents.Any(d => d.Status == OwnershipDocStatus.Rejected))
@@ -85,6 +110,9 @@ public void AddDocument(string fileKey)
             return Result.Fail("Cannot verify property while a document is under review.");
         IsVerified = true;
         VerifiedAt = DateTimeOffset.UtcNow;
+        VerifiedByUserId = verifierUserId;
+        VerifiedByName = verifierName;
+        VerifiedByRole = verifierRole;
         Raise(new OwnershipVerified(Id));     // the ONE place this event is raised
         return Result.Ok();
     }

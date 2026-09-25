@@ -26,5 +26,30 @@ public sealed class ListPropertyCommandValidator
             .MaximumLength(2000)
             .WithMessage("Description cannot exceed 2000 characters.")
             .When(x => !string.IsNullOrWhiteSpace(x.Description));
+
+        RuleFor(x => x.CautionFeeAmount)
+            .GreaterThanOrEqualTo(0)
+            .WithMessage("Caution fee cannot be negative.")
+            .When(x => x.CautionFeeAmount.HasValue);
+
+        RuleFor(x => x.RealHouseFeeAmount)
+            .GreaterThanOrEqualTo(0)
+            .WithMessage("Real house fee cannot be negative.")
+            .When(x => x.RealHouseFeeAmount.HasValue);
+
+        RuleFor(x => x.AgentFeeAmount)
+            .GreaterThanOrEqualTo(0)
+            .WithMessage("Agent fee cannot be negative.")
+            .When(x => x.AgentFeeAmount.HasValue);
+
+        RuleFor(x => x.OtherExpenses)
+            .MaximumLength(300)
+            .WithMessage("Other expenses cannot exceed 300 characters.")
+            .When(x => !string.IsNullOrWhiteSpace(x.OtherExpenses));
+
+        RuleForEach(x => x.ImageUrls)
+            .MaximumLength(2000)
+            .WithMessage("An image URL cannot exceed 2000 characters.")
+            .When(x => x.ImageUrls is not null);
     }
 }

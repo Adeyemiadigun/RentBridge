@@ -1,4 +1,5 @@
 ﻿using RentBridge.Domain.Common;
+using RentBridge.Domain.Entities;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 
@@ -11,15 +12,33 @@ public class Listing : Entity<Guid>
     public string Title { get; private set; }
     public string? Description { get; private set; }
     public Money Price { get; private set; }
+    public ListingType ListingType { get; private set; } = ListingType.Rent;
+    public PaymentPlan PaymentPlan { get; private set; } = PaymentPlan.Outright;
+    public Money? CautionFee { get; private set; }
+    public string? OtherExpenses { get; private set; }
+    public Money? RealHouseFee { get; private set; }
+    public Money? AgentFee { get; private set; }
     public ListingStatus Status { get; private set; }
+    private readonly List<ListingImage> _images = new();
+    public IReadOnlyCollection<ListingImage> Images => _images;
     public string? CoverImageKey { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? PublishedAt { get; private set; }
 
     private Listing() { }
 
-    public Listing(Guid ownerUserId, Guid propertyId, string title, Money price, string? description = null)
-        : this()
+    public Listing(
+        Guid ownerUserId,
+        Guid propertyId,
+        string title,
+        Money price,
+        string? description = null,
+        ListingType listingType = ListingType.Rent,
+        PaymentPlan paymentPlan = PaymentPlan.Outright,
+        Money? cautionFee = null,
+        string? otherExpenses = null,
+        Money? realHouseFee = null,
+        Money? agentFee = null) : this()
     {
         Id = Guid.NewGuid();
         OwnerUserId = ownerUserId;
@@ -27,6 +46,12 @@ public class Listing : Entity<Guid>
         Title = title;
         Price = price;
         Description = description;
+        ListingType = listingType;
+        PaymentPlan = paymentPlan;
+        CautionFee = cautionFee;
+        OtherExpenses = otherExpenses;
+        RealHouseFee = realHouseFee;
+        AgentFee = agentFee;
         Status = ListingStatus.Draft;
         CreatedAt = DateTimeOffset.UtcNow;
     }
@@ -58,6 +83,23 @@ public class Listing : Entity<Guid>
     {
         if (Status != ListingStatus.Published) return Result.Fail("Only published listings can be unpublished");
         Status = ListingStatus.Unpublished;
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Replaces the listing's hosted photographs. The first image becomes
+    /// the cover shown on search cards.
+    /// </summary>
+    public Result SetImages(IEnumerable<string> imageUrls)
+    {
+        if (imageUrls is null) return Result.Fail("Image URLs cannot be null.");
+        var urls = imageUrls.Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+        _images.Clear();
+        for (var i = 0; i < urls.Count; i++)
+        {
+            _images.Add(new ListingImage(Id, urls[i], i));
+        }
+        CoverImageKey = urls.FirstOrDefault();
         return Result.Ok();
     }
 

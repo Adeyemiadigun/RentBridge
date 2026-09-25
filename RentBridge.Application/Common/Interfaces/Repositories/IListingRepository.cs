@@ -15,5 +15,12 @@ public interface IListingRepository
         ListingStatus? status,
         int page,
         int pageSize,
-        CancellationToken ct);
+        CancellationToken ct,
+        Guid? ownerUserId = null);
+
+    /// <summary>
+    /// Returns a published listing composed with its property and the
+    /// owning user's details, or null when not found / not published.
+    /// </summary>
+    Task<ListingDetailItem?> GetDetailAsync(Guid id, CancellationToken ct);
 }
