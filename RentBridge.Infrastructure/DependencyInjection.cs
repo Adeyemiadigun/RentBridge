@@ -58,6 +58,8 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IAgreementPdfRenderer, AgreementPdfRenderer>();
 
+        services.Configure<PaymentOptions>(configuration.GetSection(PaymentOptions.SectionName));
+
         services.AddHttpClient<IEscrowProvider, PaystackEscrowProvider>((sp, client) =>
         {
             var options = sp.GetRequiredService<IOptions<PaymentOptions>>().Value;
