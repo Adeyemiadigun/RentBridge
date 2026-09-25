@@ -29,11 +29,10 @@ namespace RentBridge.Application.Command.Listing
                 logger.LogInformation("User {userId} is not the owner of property {propertyId}", user.Id, request.PropertyId);
                 return Result<Guid>.Fail("You can only list your own property");
             }
-            if(!property.IsVerified)
-            {
-                logger.LogInformation("Property Has not been Verified");
-                return Result<Guid>.Fail("Property Has not been Verified");
-            }
+            // Draft listing is allowed before ownership verification; the
+            // PublishListingCommand stays gated on property verification, so
+            // the owner submits the property + docs, a lawyer verifies, and
+            // then the draft can be published.
             var moneyResult = Money.Naira(request.PriceAmount);
             if (!moneyResult.IsSuccess)
             {

@@ -14,4 +14,5 @@ public sealed record SearchListingsQuery(
     string? Area = null,
     decimal? MinPrice = null,
     decimal? MaxPrice = null,
-    ListingStatus? Status = null) : IRequest<Result<PagedResult<ListingSearchItem>>>;
+    ListingStatus? Status = null,
+    bool Mine = false) : IRequest<Result<PagedResult<ListingSearchItem>>>;
