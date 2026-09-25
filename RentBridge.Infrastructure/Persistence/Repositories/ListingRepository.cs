@@ -82,4 +82,56 @@ public class ListingRepository : IListingRepository
 
         return new PagedResult<ListingSearchItem>(page, pageSize, totalCount, items);
     }
+
+    public async Task<ListingDetailItem?> GetDetailAsync(Guid id, CancellationToken ct)
+    {
+        var query = _context.Set<Listing>().AsNoTracking()
+            .Where(listing => listing.Id == id && listing.Status == ListingStatus.Published)
+            .Join(
+                _context.Set<Property>().AsNoTracking(),
+                listing => listing.PropertyId,
+                property => property.Id,
+                (listing, property) => new { listing, property })
+            .Join(
+                _context.Set<User>().AsNoTracking(),
+                x => x.listing.OwnerUserId,
+                user => user.Id,
+                (x, user) => new { x.listing, x.property, user });
+
+        var row = await query.FirstOrDefaultAsync(ct);
+        if (row is null) return null;
+
+        var l = row.listing;
+        var p = row.property;
+        var u = row.user;
+        return new ListingDetailItem(
+            l.Id,
+            l.Title,
+            l.Description,
+            l.Price.Amount,
+            l.Price.Currency,
+            l.Status,
+            l.CoverImageKey,
+            l.CreatedAt,
+            l.PublishedAt,
+            l.PropertyId,
+            l.ListingType,
+            l.PaymentPlan,
+            l.CautionFee?.Amount,
+            l.RealHouseFee?.Amount,
+            l.AgentFee?.Amount,
+            p.PropertyAddress.Street,
+            p.PropertyAddress.City,
+            p.PropertyAddress.Area,
+            p.PropertyAddress.State,
+            p.PropertyType,
+            p.Bedrooms,
+            p.Bathrooms,
+            p.AvailableFrom,
+            p.Amenities,
+            u.Id,
+            $"{u.FirstName} {u.LastName}".Trim(),
+            u.Email.Value,
+            u.IdentityVerified);
+    }
 }

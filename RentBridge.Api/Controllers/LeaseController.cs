@@ -37,6 +37,23 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Lists leases involving the caller (as landlord, tenant or assigned
+    /// lawyer; admins see all), newest first, with party names and the
+    /// latest inspection request included per row.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> List(CancellationToken ct, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var result = await mediator.Send(new GetCallerLeasesQuery(page, pageSize), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
     /// The tenant requests an inspection date. Adds a pending inspection
     /// request to the lease.
     /// </summary>
