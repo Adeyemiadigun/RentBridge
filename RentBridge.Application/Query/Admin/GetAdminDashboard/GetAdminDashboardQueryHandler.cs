@@ -35,13 +35,17 @@ public sealed class GetAdminDashboardQueryHandler(
         }
 
         var users = unitOfWork.Repository<UserAggregate>();
+        // Single GROUP BY per entity — no entity (and no owned-collection)
+        // hydration. Absent buckets mean zero; Total is the bucket sum.
+        var roleCounts = (await users.CountByAsync(null, u => u.Role, cancellationToken))
+            .ToDictionary(r => r.Key, r => r.Count);
         var userSummary = new UserSummary(
-            Total: await users.CountAsync(null, cancellationToken),
-            Tenants: await users.CountAsync(u => u.Role == UserRole.Tenant, cancellationToken),
-            Landlords: await users.CountAsync(u => u.Role == UserRole.Landlord, cancellationToken),
-            Agents: await users.CountAsync(u => u.Role == UserRole.Agent, cancellationToken),
-            Caretakers: await users.CountAsync(u => u.Role == UserRole.Caretaker, cancellationToken),
-            Lawyers: await users.CountAsync(u => u.Role == UserRole.Lawyer, cancellationToken),
+            Total: roleCounts.Values.Sum(),
+            Tenants: roleCounts.GetValueOrDefault(UserRole.Tenant),
+            Landlords: roleCounts.GetValueOrDefault(UserRole.Landlord),
+            Agents: roleCounts.GetValueOrDefault(UserRole.Agent),
+            Caretakers: roleCounts.GetValueOrDefault(UserRole.Caretaker),
+            Lawyers: roleCounts.GetValueOrDefault(UserRole.Lawyer),
             IdentityVerified: await users.CountAsync(u => u.IdentityVerified, cancellationToken),
             PendingLawyers: await users.CountAsync(
                 u => u.Role == UserRole.Lawyer
@@ -50,34 +54,42 @@ public sealed class GetAdminDashboardQueryHandler(
                 cancellationToken));
 
         var listings = unitOfWork.Repository<ListingAggregate>();
+        var listingCounts = (await listings.CountByAsync(null, l => l.Status, cancellationToken))
+            .ToDictionary(r => r.Key, r => r.Count);
         var listingSummary = new ListingSummary(
-            Total: await listings.CountAsync(null, cancellationToken),
-            Draft: await listings.CountAsync(l => l.Status == ListingStatus.Draft, cancellationToken),
-            Published: await listings.CountAsync(l => l.Status == ListingStatus.Published, cancellationToken),
-            Unpublished: await listings.CountAsync(l => l.Status == ListingStatus.Unpublished, cancellationToken),
-            Closed: await listings.CountAsync(l => l.Status == ListingStatus.Closed, cancellationToken));
+            Total: listingCounts.Values.Sum(),
+            Draft: listingCounts.GetValueOrDefault(ListingStatus.Draft),
+            Published: listingCounts.GetValueOrDefault(ListingStatus.Published),
+            Unpublished: listingCounts.GetValueOrDefault(ListingStatus.Unpublished),
+            Closed: listingCounts.GetValueOrDefault(ListingStatus.Closed));
 
         var leases = unitOfWork.Repository<LeaseAggregate>();
+        var leaseCounts = (await leases.CountByAsync(null, l => l.Status, cancellationToken))
+            .ToDictionary(r => r.Key, r => r.Count);
         var leaseSummary = new LeaseSummary(
-            Total: await leases.CountAsync(null, cancellationToken),
-            FundedInEscrow: await leases.CountAsync(l => l.Status == LeaseStatus.FundedInEscrow, cancellationToken),
-            Releasing: await leases.CountAsync(l => l.Status == LeaseStatus.Releasing, cancellationToken),
-            Released: await leases.CountAsync(l => l.Status == LeaseStatus.Released, cancellationToken));
-
-        // Money held between funding and payout. Bounded by active escrows.
-        var activeEscrows = await leases.FindAsync(
-            l => l.Status == LeaseStatus.FundedInEscrow || l.Status == LeaseStatus.Releasing,
-            cancellationToken);
-        var heldPayments = activeEscrows
-            .SelectMany(l => l.EscrowPayments)
-            .Where(p => p.Status is EscrowStatus.Funded or EscrowStatus.Releasing or EscrowStatus.PayoutFailed)
-            .ToList();
-        var inFlight = new EscrowInFlight(
-            activeEscrows.Count,
-            heldPayments.Sum(p => p.GrossAmount.Amount),
-            heldPayments.Select(p => p.GrossAmount.Currency).FirstOrDefault() ?? string.Empty);
+            Total: leaseCounts.Values.Sum(),
+            FundedInEscrow: leaseCounts.GetValueOrDefault(LeaseStatus.FundedInEscrow),
+            Releasing: leaseCounts.GetValueOrDefault(LeaseStatus.Releasing),
+            Released: leaseCounts.GetValueOrDefault(LeaseStatus.Released));
 
         var totals = await unitOfWork.Ledger.GetTotalsAsync(null, cancellationToken);
+
+        // Money held between funding and payout, derived from ledger lines:
+        // every funding writes an EscrowFunded credit; every release writes
+        // commission + legal debits and a payout credit summing back to gross.
+        var funded = totals
+            .Where(t => t.Type == TransactionType.EscrowFunded)
+            .Sum(t => t.Total);
+        var released = totals
+            .Where(t => t.Type is TransactionType.PlatformCommission
+                or TransactionType.LegalFeeShare
+                or TransactionType.LandlordPayout)
+            .Sum(t => t.Total);
+        var inFlight = new EscrowInFlight(
+            leaseCounts.GetValueOrDefault(LeaseStatus.FundedInEscrow)
+                + leaseCounts.GetValueOrDefault(LeaseStatus.Releasing),
+            funded - released,
+            totals.Select(t => t.Currency).FirstOrDefault() ?? string.Empty);
 
         return Result<AdminDashboardResponse>.Ok(
             new AdminDashboardResponse(userSummary, listingSummary, leaseSummary, inFlight, new LedgerMetrics(totals)));

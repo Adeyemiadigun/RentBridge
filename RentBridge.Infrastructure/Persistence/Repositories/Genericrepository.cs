@@ -51,6 +51,27 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
                 : await _dbSet.CountAsync(predicate, ct);
         }
 
+        public async Task<IReadOnlyList<GroupCount<TKey>>> CountByAsync<TKey>(
+            Expression<Func<T, bool>>? predicate,
+            Expression<Func<T, TKey>> keySelector,
+            CancellationToken ct)
+        {
+            var query = _dbSet.AsNoTracking().AsQueryable();
+            if (predicate is not null)
+            {
+                query = query.Where(predicate);
+            }
+
+            // Anonymous projection first: keeps EF translation bulletproof,
+            // then map to the record client-side.
+            var rows = await query
+                .GroupBy(keySelector)
+                .Select(g => new { g.Key, Count = g.Count() })
+                .ToListAsync(ct);
+
+            return rows.Select(r => new GroupCount<TKey>(r.Key, r.Count)).ToList();
+        }
+
         public async Task<PagedResult<T>> GetPagedAsync(
             Expression<Func<T, bool>>? predicate,
             int page,
