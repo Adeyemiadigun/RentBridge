@@ -43,7 +43,10 @@ public class VerifyPropertyCommandHandler(
             return Result.Fail(auth.Error!);
         }
 
-        var verifyResult = property.MarkOwnershipVerified();
+        var verifyResult = property.MarkOwnershipVerified(
+            user.Id.ToString(),
+            $"{user.FirstName} {user.LastName}".Trim(),
+            user.Role.ToString());
         if (!verifyResult.IsSuccess)
         {
             logger.LogInformation("Property {propertyId} cannot be verified: {error}", request.PropertyId, verifyResult.Error);

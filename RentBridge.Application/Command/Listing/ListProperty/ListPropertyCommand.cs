@@ -17,5 +17,6 @@ namespace RentBridge.Application.Command.Listing
         decimal? CautionFeeAmount = null,
         string? OtherExpenses = null,
         decimal? RealHouseFeeAmount = null,
-        decimal? AgentFeeAmount = null) : IRequest<Result<Guid>>;
+        decimal? AgentFeeAmount = null,
+        List<string>? ImageUrls = null) : IRequest<Result<Guid>>;
 }

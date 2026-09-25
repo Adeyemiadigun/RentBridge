@@ -46,5 +46,10 @@ public sealed class ListPropertyCommandValidator
             .MaximumLength(300)
             .WithMessage("Other expenses cannot exceed 300 characters.")
             .When(x => !string.IsNullOrWhiteSpace(x.OtherExpenses));
+
+        RuleForEach(x => x.ImageUrls)
+            .MaximumLength(2000)
+            .WithMessage("An image URL cannot exceed 2000 characters.")
+            .When(x => x.ImageUrls is not null);
     }
 }

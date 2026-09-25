@@ -58,5 +58,17 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
             f.Property(x => x.Amount).HasColumnName("agent_fee_amount").HasPrecision(18, 2);
             f.Property(x => x.Currency).HasColumnName("agent_fee_currency").HasMaxLength(8);
         });
+
+        b.OwnsMany(l => l.Images, img =>
+        {
+            img.ToTable("listing_images");
+            img.WithOwner().HasForeignKey("ListingId");
+            img.HasKey(i => i.Id);
+
+            img.Property(i => i.Url).HasColumnName("url");
+            img.Property(i => i.Position).HasColumnName("position");
+
+            img.HasIndex(i => i.ListingId);
+        });
     }
 }

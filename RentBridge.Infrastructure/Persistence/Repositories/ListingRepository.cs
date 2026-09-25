@@ -33,6 +33,7 @@ public class ListingRepository : IListingRepository
         // ListingSearchItem record constructor, which surfaced as a 500 on
         // GET /listings/search). The record is built in memory afterwards.
         var query = _context.Set<Listing>().AsNoTracking()
+            .Include(listing => listing.Images)
             .Where(listing => listing.Status == resolvedStatus
                 && (minPrice == null || listing.Price.Amount >= minPrice)
                 && (maxPrice == null || listing.Price.Amount <= maxPrice))
@@ -62,6 +63,7 @@ public class ListingRepository : IListingRepository
                 x.listing.Price.Currency,
                 x.listing.Status,
                 x.listing.CoverImageKey,
+                x.listing.Images.OrderBy(img => img.Position).Select(img => img.Url).ToList(),
                 x.listing.CreatedAt,
                 x.listing.PublishedAt,
                 x.listing.PropertyId,
@@ -86,6 +88,7 @@ public class ListingRepository : IListingRepository
     public async Task<ListingDetailItem?> GetDetailAsync(Guid id, CancellationToken ct)
     {
         var query = _context.Set<Listing>().AsNoTracking()
+            .Include(listing => listing.Images)
             .Where(listing => listing.Id == id && listing.Status == ListingStatus.Published)
             .Join(
                 _context.Set<Property>().AsNoTracking(),
@@ -112,6 +115,7 @@ public class ListingRepository : IListingRepository
             l.Price.Currency,
             l.Status,
             l.CoverImageKey,
+            l.Images.OrderBy(img => img.Position).Select(img => img.Url).ToList(),
             l.CreatedAt,
             l.PublishedAt,
             l.PropertyId,

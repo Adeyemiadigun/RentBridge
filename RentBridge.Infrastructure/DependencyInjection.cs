@@ -43,6 +43,9 @@ public static class DependencyInjection
             configuration.GetSection(VerificationOptions.SectionName));
         services.Configure<DojahOptions>(
             configuration.GetSection(DojahOptions.SectionName));
+        services.Configure<CloudinaryOptions>(
+            configuration.GetSection(CloudinaryOptions.SectionName));
+        services.AddHttpClient<IFileStorage, CloudinaryFileStorage>();
         services.AddScoped<DojahIdentityVerificationProvider>();
         services.AddHttpClient<SmileIdentityVerificationProvider>();
         services.AddScoped<IIdentityVerificationProvider>(

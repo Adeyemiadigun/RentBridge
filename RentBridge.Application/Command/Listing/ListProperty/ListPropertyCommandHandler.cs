@@ -90,6 +90,11 @@ namespace RentBridge.Application.Command.Listing
                 realHouseFee,
                 agentFee);
 
+            if (request.ImageUrls is not null)
+            {
+                propertyListing.SetImages(request.ImageUrls);
+            }
+
              unitOfWork.Repository<ListingAggreagte>().Add(propertyListing);
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
