@@ -37,35 +37,47 @@ public sealed class GetOwnerDashboardQueryHandler(
             return Result<OwnerDashboardResponse>.Fail("Only listing owners can view this dashboard.");
         }
 
-        var ownListings = await unitOfWork.Repository<ListingAggregate>()
-            .FindAsync(l => l.OwnerUserId == user.Id, cancellationToken);
+        // Single GROUP BY per entity — no entity (and no owned-collection)
+        // hydration. Absent buckets mean zero.
+        var listingCounts = (await unitOfWork.Repository<ListingAggregate>()
+                .CountByAsync(l => l.OwnerUserId == user.Id, l => l.Status, cancellationToken))
+            .ToDictionary(r => r.Key, r => r.Count);
         var listingSummary = new ListingSummary(
-            Total: ownListings.Count,
-            Draft: ownListings.Count(l => l.Status == ListingStatus.Draft),
-            Published: ownListings.Count(l => l.Status == ListingStatus.Published),
-            Unpublished: ownListings.Count(l => l.Status == ListingStatus.Unpublished),
-            Closed: ownListings.Count(l => l.Status == ListingStatus.Closed));
+            Total: listingCounts.Values.Sum(),
+            Draft: listingCounts.GetValueOrDefault(ListingStatus.Draft),
+            Published: listingCounts.GetValueOrDefault(ListingStatus.Published),
+            Unpublished: listingCounts.GetValueOrDefault(ListingStatus.Unpublished),
+            Closed: listingCounts.GetValueOrDefault(ListingStatus.Closed));
 
-        var ownLeases = await unitOfWork.Repository<LeaseAggregate>()
-            .FindAsync(l => l.LandlordUserId == user.Id, cancellationToken);
+        var leaseCounts = (await unitOfWork.Repository<LeaseAggregate>()
+                .CountByAsync(l => l.LandlordUserId == user.Id, l => l.Status, cancellationToken))
+            .ToDictionary(r => r.Key, r => r.Count);
         var leaseSummary = new LeaseSummary(
-            Total: ownLeases.Count,
-            FundedInEscrow: ownLeases.Count(l => l.Status == LeaseStatus.FundedInEscrow),
-            Releasing: ownLeases.Count(l => l.Status == LeaseStatus.Releasing),
-            Released: ownLeases.Count(l => l.Status == LeaseStatus.Released));
-
-        var heldPayments = ownLeases
-            .Where(l => l.Status is LeaseStatus.FundedInEscrow or LeaseStatus.Releasing)
-            .SelectMany(l => l.EscrowPayments)
-            .Where(p => p.Status is EscrowStatus.Funded or EscrowStatus.Releasing or EscrowStatus.PayoutFailed)
-            .ToList();
-        var inFlight = new EscrowInFlight(
-            ownLeases.Count(l => l.Status is LeaseStatus.FundedInEscrow or LeaseStatus.Releasing),
-            heldPayments.Sum(p => p.GrossAmount.Amount),
-            heldPayments.Select(p => p.GrossAmount.Currency).FirstOrDefault() ?? string.Empty);
+            Total: leaseCounts.Values.Sum(),
+            FundedInEscrow: leaseCounts.GetValueOrDefault(LeaseStatus.FundedInEscrow),
+            Releasing: leaseCounts.GetValueOrDefault(LeaseStatus.Releasing),
+            Released: leaseCounts.GetValueOrDefault(LeaseStatus.Released));
 
         var payoutTotals = await unitOfWork.Ledger.GetTotalsAsync(
             e => e.LandlordUserId == user.Id, cancellationToken);
+
+        // Money held between funding and payout, derived from ledger lines:
+        // every funding writes an EscrowFunded credit; only a finalized
+        // release writes the commission + legal + payout lines that net it
+        // to zero — failed/in-flight payouts stay counted, as before.
+        var funded = payoutTotals
+            .Where(t => t.Type == TransactionType.EscrowFunded)
+            .Sum(t => t.Total);
+        var released = payoutTotals
+            .Where(t => t.Type is TransactionType.PlatformCommission
+                or TransactionType.LegalFeeShare
+                or TransactionType.LandlordPayout)
+            .Sum(t => t.Total);
+        var inFlight = new EscrowInFlight(
+            leaseCounts.GetValueOrDefault(LeaseStatus.FundedInEscrow)
+                + leaseCounts.GetValueOrDefault(LeaseStatus.Releasing),
+            funded - released,
+            payoutTotals.Select(t => t.Currency).FirstOrDefault() ?? string.Empty);
 
         var recent = await unitOfWork.Repository<LedgerEntry>().GetPagedAsync(
             e => e.LandlordUserId == user.Id,
