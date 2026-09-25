@@ -20,10 +20,11 @@ public sealed class CloudinaryOptions
 /// Uploads photos and ownership documents to Cloudinary and returns the
 /// secure hosted URL, which callers store on the property/listing.
 /// Uses Cloudinary's REST upload API with a signed (timestamp + SHA-1)
-/// signature, mirroring the raw-HttpClient pattern of BrevoEmailService.
+/// signature. Registered as a typed HttpClient client, so the injected
+/// client is a shared, configured HttpClient for outbound calls.
 /// </summary>
 public sealed class CloudinaryFileStorage(
-    IHttpClientFactory httpClientFactory,
+    HttpClient httpClient,
     IOptions<CloudinaryOptions> options) : IFileStorage
 {
     private const string Folder = "rentbridge";
@@ -70,7 +71,8 @@ public sealed class CloudinaryFileStorage(
             content.Add(new StringContent(p.Value), p.Key);
         }
 
-        var client = httpClientFactory.CreateClient();
+        var client = httpClient;
+        client.DefaultRequestHeaders.Clear();
         var response = await client.PostAsync(
             $"https://api.cloudinary.com/v1_1/{opts.CloudName}/{resourceType}/upload",
             content,
