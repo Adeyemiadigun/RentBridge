@@ -9,18 +9,18 @@ using RentBridge.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace RentBridge.Infrastructure.Persistence.Migrations
+namespace RentBridge.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260924211227_PropertyListingDetails")]
-    partial class PropertyListingDetails
+    [Migration("20260925084409_TableCreated")]
+    partial class TableCreated
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
