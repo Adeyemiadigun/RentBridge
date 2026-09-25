@@ -57,7 +57,13 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IAgreementPdfRenderer, AgreementPdfRenderer>();
 
-        services.AddHttpClient<IEscrowProvider, PaystackEscrowProvider>();
+        services.AddHttpClient<IEscrowProvider, PaystackEscrowProvider>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<PaymentOptions>>().Value;
+            client.BaseAddress = new Uri(options.Paystack.BaseUrl.TrimEnd('/'));
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.Paystack.SecretKey);
+        });
 
         return services;
     }
