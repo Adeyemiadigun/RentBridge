@@ -1,4 +1,5 @@
-﻿using Asp.Versioning;
+﻿using System.Text.Json.Serialization;
+using Asp.Versioning;
 using Hangfire;
 using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
@@ -46,7 +47,11 @@ if (!string.IsNullOrWhiteSpace(databaseUrl) &&
     }
 }
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 builder.Services.AddOpenApi();
 
 // URL-segment versioning: /api/v1/.... Unversioned requests are assumed v1,
