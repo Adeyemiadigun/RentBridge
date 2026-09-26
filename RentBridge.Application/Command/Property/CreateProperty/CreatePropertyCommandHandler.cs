@@ -43,17 +43,9 @@ namespace RentBridge.Application.Command.Property
                 request.DocumentUrls.ForEach(item => property.AddDocument(item));
             }
 
-             unitOfWork.Repository<PropertyAggregate>().Add(property);
-
-            var assignment = await lawyerAssignmentService.PickNextVerifiedLawyerAsync(cancellationToken);
-            if (assignment.IsSuccess)
-            {
-                property.AssignVerificationLawyer(assignment.Value);
-            }
-            else
-            {
-                logger.LogInformation("No verified lawyer available; property {PropertyId} queued for manual assignment", property.Id);
-            }
+            // Property is created as draft - no lawyer assigned until owner is identity verified
+            // Lawyer will be assigned when owner is identity verified and republishes the property
+            unitOfWork.Repository<PropertyAggregate>().Add(property);
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
 

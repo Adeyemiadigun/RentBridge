@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace RentBridge.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class TableCreated : Migration
+    public partial class initials : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -159,7 +159,10 @@ namespace RentBridge.Infrastructure.Migrations
                     amenities = table.Column<string>(type: "jsonb", nullable: false),
                     is_verified = table.Column<bool>(type: "boolean", nullable: false),
                     VerificationLawyerId = table.Column<Guid>(type: "uuid", nullable: true),
-                    VerifiedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                    VerifiedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    verified_by_user_id = table.Column<string>(type: "text", nullable: true),
+                    verified_by_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    verified_by_role = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -339,6 +342,26 @@ namespace RentBridge.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "listing_images",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ListingId = table.Column<Guid>(type: "uuid", nullable: false),
+                    url = table.Column<string>(type: "text", nullable: false),
+                    position = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_listing_images", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_listing_images_listings_ListingId",
+                        column: x => x.ListingId,
+                        principalTable: "listings",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ownership_documents",
                 columns: table => new
                 {
@@ -346,7 +369,12 @@ namespace RentBridge.Infrastructure.Migrations
                     PropertyId = table.Column<Guid>(type: "uuid", nullable: false),
                     FileKey = table.Column<string>(type: "text", nullable: false),
                     Status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
-                    UploadedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    verified_by_user_id = table.Column<string>(type: "text", nullable: true),
+                    verified_by_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    verified_by_role = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    rejection_reason = table.Column<string>(type: "text", nullable: true),
+                    UploadedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    reviewed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -441,6 +469,11 @@ namespace RentBridge.Infrastructure.Migrations
                 columns: new[] { "tenant_user_id", "occurred_at" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_listing_images_ListingId",
+                table: "listing_images",
+                column: "ListingId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_listings_OwnerUserId",
                 table: "listings",
                 column: "OwnerUserId");
@@ -514,7 +547,7 @@ namespace RentBridge.Infrastructure.Migrations
                 name: "ledger_entries");
 
             migrationBuilder.DropTable(
-                name: "listings");
+                name: "listing_images");
 
             migrationBuilder.DropTable(
                 name: "ownership_documents");
@@ -533,6 +566,9 @@ namespace RentBridge.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "leases");
+
+            migrationBuilder.DropTable(
+                name: "listings");
 
             migrationBuilder.DropTable(
                 name: "properties");

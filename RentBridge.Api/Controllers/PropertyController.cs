@@ -112,6 +112,22 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Owner submits their property for legal review after completing identity verification.
+    /// Assigns a lawyer if not already assigned.
+    /// </summary>
+    [HttpPost("{propertyId:guid}/submit-for-review")]
+    public async Task<IActionResult> SubmitForReview(Guid propertyId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new SubmitPropertyForReviewCommand(propertyId), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { success = true, message = "Property submitted for legal review. A lawyer will be assigned shortly." });
+    }
+
+    /// <summary>
     /// Lists the current user's properties (landlord/caretaker/agent)
     /// with pagination and optional filters.
     /// </summary>
