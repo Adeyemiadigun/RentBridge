@@ -12,8 +12,8 @@ using RentBridge.Infrastructure.Persistence;
 namespace RentBridge.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260926231200_initials")]
-    partial class initials
+    [Migration("20260926232904_Initials")]
+    partial class Initials
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
