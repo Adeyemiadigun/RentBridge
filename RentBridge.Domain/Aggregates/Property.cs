@@ -11,6 +11,8 @@ public class Property : Entity<Guid>
     public Address PropertyAddress { get; private set; }
     private readonly List<OwnershipDocument> _documents = new();
     public IReadOnlyCollection<OwnershipDocument> Documents => _documents;
+    private readonly List<string> _images = new();
+    public IReadOnlyCollection<string> Images => _images;
 
     public string? PropertyType { get; private set; }
     public int Bedrooms { get; private set; }
@@ -38,7 +40,8 @@ public class Property : Entity<Guid>
         int bedrooms = 0,
         int bathrooms = 0,
         string? availableFrom = null,
-        IEnumerable<string>? amenities = null) : this()
+        IEnumerable<string>? amenities = null,
+        IEnumerable<string>? imageUrls = null) : this()
     {
         Id = Guid.NewGuid();
         OwnerUserId = ownerUserId;
@@ -49,10 +52,21 @@ public class Property : Entity<Guid>
         AvailableFrom = availableFrom;
         if (amenities is not null)
             Amenities.AddRange(amenities.Where(a => !string.IsNullOrWhiteSpace(a)));
+        if (imageUrls is not null)
+            _images.AddRange(imageUrls.Where(u => !string.IsNullOrWhiteSpace(u)));
     }
 
-public void AddDocument(string fileKey)
+    public void AddDocument(string fileKey)
         => _documents.Add(new OwnershipDocument(Id, fileKey));
+
+    public Result SetImages(IEnumerable<string> imageUrls)
+    {
+        if (imageUrls is null) return Result.Fail("Image URLs cannot be null.");
+        var urls = imageUrls.Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+        _images.Clear();
+        _images.AddRange(urls);
+        return Result.Ok();
+    }
 
     public Result AssignVerificationLawyer(Guid lawyerId)
     {
@@ -116,7 +130,8 @@ public void AddDocument(string fileKey)
         Raise(new OwnershipVerified(Id));     // the ONE place this event is raised
         return Result.Ok();
     }
-}
+
+    }
 
 public record OwnershipVerified(Guid PropertyId) : IDomainEvent;
 public record VerificationLawyerAssigned(Guid PropertyId, Guid? PreviousLawyerId, Guid LawyerId) : IDomainEvent;

@@ -18,5 +18,6 @@ namespace RentBridge.Application.Command.Property
         int Bedrooms = 0,
         int Bathrooms = 0,
         string? AvailableFrom = null,
-        List<string>? Amenities = null) : IRequest<Result<Guid>>;
+        List<string>? Amenities = null,
+        List<string>? ImageUrls = null) : IRequest<Result<Guid>>;
 }

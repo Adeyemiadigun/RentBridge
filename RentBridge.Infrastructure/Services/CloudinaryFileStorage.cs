@@ -105,6 +105,107 @@ public sealed class CloudinaryFileStorage(
         return Result<string>.Fail("Upload returned no URL.");
     }
 
+    public async Task<Result> DeleteAsync(string fileUrl, CancellationToken ct)
+    {
+        var opts = options.Value;
+        if (string.IsNullOrWhiteSpace(opts.CloudName)
+            || string.IsNullOrWhiteSpace(opts.ApiKey)
+            || string.IsNullOrWhiteSpace(opts.ApiSecret))
+        {
+            return Result.Fail("Cloudinary is not configured.");
+        }
+
+        // Extract public_id from the Cloudinary URL
+        // URL format: https://res.cloudinary.com/{cloud_name}/{resource_type}/upload/{version}/{public_id}.{format}
+        // Or: https://res.cloudinary.com/{cloud_name}/raw/upload/{version}/{public_id}.{format}
+        try
+        {
+            var uri = new Uri(fileUrl);
+            var segments = uri.AbsolutePath.Split('/');
+            // Find the upload segment and get everything after it
+            int uploadIndex = Array.FindIndex(segments, s => s == "upload" || s == "raw" || s == "image" || s == "video");
+            
+            if (uploadIndex < 0 || uploadIndex + 1 >= segments.Length)
+            {
+                return Result.Fail("Could not extract public_id from URL - invalid URL format");
+            }
+            
+            // Get everything after "upload/" as the public_id (without extension)
+            var publicIdParts = segments.Skip(uploadIndex + 1).ToArray();
+            var publicIdWithExt = string.Join("/", publicIdParts);
+            // Remove file extension
+            var publicId = Path.GetFileNameWithoutExtension(publicIdWithExt);
+            
+            // If there's a version number (starts with v), remove it
+            if (publicId.StartsWith("v") && publicId.Length > 1 && char.IsDigit(publicId[1]))
+            {
+                var versionEnd = publicId.IndexOf('/');
+                if (versionEnd > 0)
+                {
+                    publicId = publicId.Substring(versionEnd + 1);
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(publicId))
+            {
+                return Result.Fail("Could not extract public_id from URL");
+            }
+
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+            var parameters = new List<KeyValuePair<string, string>>
+            {
+                new("timestamp", timestamp),
+                new("invalidate", "true"),
+            };
+
+            var signed = string.Join("&",
+                parameters.OrderBy(p => p.Key, StringComparer.Ordinal)
+                    .Select(p => $"{p.Key}={p.Value}"));
+            var signature = Sha1Hex($"{signed}{options.Value.ApiSecret}");
+
+            var deleteUrl = $"https://api.cloudinary.com/v1_1/{options.Value.CloudName}/raw/destroy";
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(opts.ApiKey), "api_key");
+            content.Add(new StringContent(publicId), "public_id");
+            content.Add(new StringContent(signature), "signature");
+            content.Add(new StringContent(timestamp), "timestamp");
+            content.Add(new StringContent("true"), "invalidate");
+
+            var response = await httpClient.PostAsync(deleteUrl, content, ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                return Result.Fail($"Delete failed ({response.StatusCode}): {Truncate(body)}");
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("result", out var resultElement) &&
+                    resultElement.GetString() == "ok")
+                {
+                    return Result.Ok();
+                }
+            }
+            catch (JsonException)
+            {
+                // Ignore parse errors, check status code
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                return Result.Ok();
+            }
+            
+            return Result.Fail($"Delete failed: {Truncate(body)}");
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail($"Delete failed: {ex.Message}");
+        }
+    }
+
     private static string Sha1Hex(string input)
     {
         var hash = SHA1.HashData(Encoding.UTF8.GetBytes(input));

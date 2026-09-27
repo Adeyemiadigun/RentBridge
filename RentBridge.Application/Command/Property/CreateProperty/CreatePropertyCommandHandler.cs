@@ -7,49 +7,50 @@ using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
 
 namespace RentBridge.Application.Command.Property
 {
-    public class CreatePropertyCommandHandler(IUnitOfWork unitOfWork,ICurrentUser _currentUser,ILawyerAssignmentService lawyerAssignmentService,ILogger<CreatePropertyCommandHandler> logger) : IRequestHandler<CreatePropertyCommand, Result<Guid>>
+public class CreatePropertyCommandHandler(IUnitOfWork unitOfWork, ICurrentUser _currentUser, ILogger<CreatePropertyCommandHandler> logger) : IRequestHandler<CreatePropertyCommand, Result<Guid>>
+{
+    public async Task<Result<Guid>> Handle(CreatePropertyCommand request, CancellationToken cancellationToken)
     {
-        public async Task<Result<Guid>> Handle(CreatePropertyCommand request, CancellationToken cancellationToken)
+        var res = await _currentUser.GetCurrentUser(true, cancellationToken);
+        if (!res.IsSuccess)
         {
-            var res = await _currentUser.GetCurrentUser(true, cancellationToken);
-            if (!res.IsSuccess)
-            {
-                return Result<Guid>.Fail(res.Error!);
-            }
-
-            var user = res.Value;
-
-            if (!PropertyAggregate.CanCreateBy(user.Role))
-            {
-                logger.LogInformation("User is not allowed to create property {UserId}", user.Id);
-                return Result<Guid>.Fail("User is not allowed to create property");
-            }
-
-            var property = new PropertyAggregate(
-                user.Id,
-                request.Street,
-                request.City,
-                request.Area,
-                request.State,
-                request.PropertyType,
-                request.Bedrooms,
-                request.Bathrooms,
-                request.AvailableFrom,
-                request.Amenities);
-
-            if (request.DocumentUrls.Count > 0)
-            {
-                logger.LogInformation("Adding documents to property For User {UserId} with Property {PropertyId}", user.Id, property.Id);
-                request.DocumentUrls.ForEach(item => property.AddDocument(item));
-            }
-
-            // Property is created as draft - no lawyer assigned until owner is identity verified
-            // Lawyer will be assigned when owner is identity verified and republishes the property
-            unitOfWork.Repository<PropertyAggregate>().Add(property);
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            return Result<Guid>.Ok(property.Id);
+            return Result<Guid>.Fail(res.Error!);
         }
+
+        var user = res.Value;
+
+        if (!PropertyAggregate.CanCreateBy(user.Role))
+        {
+            logger.LogInformation("User is not allowed to create property {UserId}", user.Id);
+            return Result<Guid>.Fail("User is not allowed to create property");
+        }
+
+        var property = new PropertyAggregate(
+            user.Id,
+            request.Street,
+            request.City,
+            request.Area,
+            request.State,
+            request.PropertyType,
+            request.Bedrooms,
+            request.Bathrooms,
+            request.AvailableFrom,
+            request.Amenities,
+            request.ImageUrls);
+
+        if (request.DocumentUrls.Count > 0)
+        {
+            logger.LogInformation("Adding documents to property For User {UserId} with Property {PropertyId}", user.Id, property.Id);
+            request.DocumentUrls.ForEach(item => property.AddDocument(item));
+        }
+
+        // Property is created as draft - no lawyer assigned until owner is identity verified
+        // Lawyer will be assigned when owner is identity verified and republishes the property
+        unitOfWork.Repository<PropertyAggregate>().Add(property);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result<Guid>.Ok(property.Id);
     }
+}
 }

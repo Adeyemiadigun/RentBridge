@@ -142,4 +142,20 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
 
         return Ok(result.Value);
     }
+
+    /// <summary>
+    /// Deletes a property and its associated images and documents from Cloudinary.
+    /// Only the property owner or an admin can delete a property.
+    /// </summary>
+    [HttpDelete("{propertyId:guid}")]
+    public async Task<IActionResult> Delete(Guid propertyId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new DeletePropertyCommand(propertyId), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { success = true, message = "Property and associated files deleted successfully." });
+    }
 }
