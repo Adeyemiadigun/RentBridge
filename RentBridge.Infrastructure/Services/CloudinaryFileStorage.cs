@@ -65,6 +65,11 @@ public sealed class CloudinaryFileStorage(
                 .Select(p => $"{p.Key}={p.Value}"));
         var signature = Sha1Hex($"{signed}{opts.ApiSecret}");
 
+        // DEBUG: Log the parameters being sent
+        Console.WriteLine($"[CLOUDINARY DEBUG] Upload parameters: {string.Join(", ", parameters.Select(p => $"{p.Key}={p.Value}"))}");
+        Console.WriteLine($"[CLOUDINARY DEBUG] Resource type: {resourceType}");
+        Console.WriteLine($"[CLOUDINARY DEBUG] Signed string: {signed}");
+
         using var content = new MultipartFormDataContent();
         var streamContent = new StreamContent(fileStream);
         streamContent.Headers.ContentType = new MediaTypeHeaderValue(
@@ -83,6 +88,9 @@ public sealed class CloudinaryFileStorage(
             $"https://api.cloudinary.com/v1_1/{opts.CloudName}/{resourceType}/upload",
             content,
             ct);
+
+        // DEBUG: Log Cloudinary response
+        Console.WriteLine($"[CLOUDINARY DEBUG] Response status: {response.StatusCode}");
 
         var body = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
