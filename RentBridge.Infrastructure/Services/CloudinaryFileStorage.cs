@@ -54,6 +54,12 @@ public sealed class CloudinaryFileStorage(
             new("timestamp", timestamp),
         };
 
+        // Make raw uploads (documents/PDFs) publicly accessible
+        if (resourceType == "raw")
+        {
+            parameters.Add(new("access_mode", "public"));
+        }
+
         var signed = string.Join("&",
             parameters.OrderBy(p => p.Key, StringComparer.Ordinal)
                 .Select(p => $"{p.Key}={p.Value}"));
