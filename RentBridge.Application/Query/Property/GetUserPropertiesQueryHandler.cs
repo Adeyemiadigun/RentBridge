@@ -39,8 +39,7 @@ public class GetUserPropertiesQueryHandler(
             p => p.Id,
             true,
             cancellationToken,
-            p => p.Documents,
-            p => p.Images);
+            p => p.Documents);
 
         var items = paged.Items
             .Select(p => new PropertyItem(
