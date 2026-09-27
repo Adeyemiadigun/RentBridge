@@ -228,6 +228,35 @@ public sealed class CloudinaryFileStorage(
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
+    public async Task<Result<string>> GetSignedUrlAsync(string publicId, string resourceType, TimeSpan? expiration = null, CancellationToken ct = default)
+    {
+        var opts = options.Value;
+        if (string.IsNullOrWhiteSpace(opts.CloudName)
+            || string.IsNullOrWhiteSpace(opts.ApiKey)
+            || string.IsNullOrWhiteSpace(opts.ApiSecret))
+        {
+            return Result<string>.Fail("Cloudinary is not configured.");
+        }
+
+        var expirySeconds = (int)(expiration ?? TimeSpan.FromHours(1)).TotalSeconds;
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+
+        var parameters = new List<KeyValuePair<string, string>>
+        {
+            new("timestamp", timestamp),
+            new("expires_at", (DateTimeOffset.UtcNow.AddSeconds(expirySeconds).ToUnixTimeSeconds()).ToString()),
+        };
+
+        var signed = string.Join("&",
+            parameters.OrderBy(p => p.Key, StringComparer.Ordinal)
+                .Select(p => $"{p.Key}={p.Value}"));
+        var signature = Sha1Hex($"{signed}{opts.ApiSecret}");
+
+        var url = $"https://res.cloudinary.com/{opts.CloudName}/{resourceType}/upload/s--{signature}--/v{timestamp}/{publicId}";
+
+        return Result<string>.Ok(url);
+    }
+
     private static string Truncate(string value, int max = 300)
         => value.Length <= max ? value : value[..max];
 }
