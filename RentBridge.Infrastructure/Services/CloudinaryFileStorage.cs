@@ -266,6 +266,7 @@ public sealed class CloudinaryFileStorage(
         Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] signed string: {string.Join("&", parameters.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={p.Value}"))}");
         Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] signature: {Sha1Hex($"{string.Join("&", parameters.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={p.Value}"))}{opts.ApiSecret}")}");
         Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] Generated URL: {url}");
+        Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] Full URL length: {url.Length}");
 
         return Result<string>.Ok(url);
     }
