@@ -37,26 +37,4 @@ public sealed class UploadController(IFileStorage storage) : ControllerBase
 
         return Ok(new { url = result.Value });
     }
-
-    [HttpPost("signed-url")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetSignedUrl([FromBody] SignedUrlRequest request, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(request.PublicId))
-        {
-            return BadRequest(new { error = "PublicId is required." });
-        }
-
-        var result = await storage.GetSignedUrlAsync(request.PublicId, request.ResourceType ?? "raw", TimeSpan.FromHours(1), ct);
-        if (result.IsSuccess is false)
-        {
-            return BadRequest(new { error = result.Error });
-        }
-
-        return Ok(new { signedUrl = result.Value });
-    }
 }
-
-public record SignedUrlRequest(string PublicId, string? ResourceType);

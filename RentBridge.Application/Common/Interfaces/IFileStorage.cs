@@ -11,5 +11,4 @@ public interface IFileStorage
 {
     Task<Result<string>> UploadAsync(Stream fileStream, string fileName, string contentType, CancellationToken ct);
     Task<Result> DeleteAsync(string fileUrl, CancellationToken ct);
-    Task<Result<string>> GetSignedUrlAsync(string publicId, string resourceType, TimeSpan? expiration = null, CancellationToken ct = default);
 }
