@@ -258,6 +258,14 @@ public sealed class CloudinaryFileStorage(
         // Cloudinary signed URL format: /s--{signature}--/{transformations}/{public_id}
         // We use version timestamp as transformation
         var url = $"https://res.cloudinary.com/{opts.CloudName}/{resourceType}/upload/s--{signature}--/v{timestamp}/{publicId}";
+        
+        Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] publicId: {publicId}");
+        Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] resourceType: {resourceType}");
+        Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] timestamp: {timestamp}");
+        Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] expiresAt: {expiresAt}");
+        Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] signed string: {string.Join("&", parameters.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={p.Value}"))}");
+        Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] signature: {Sha1Hex($"{string.Join("&", parameters.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={p.Value}"))}{opts.ApiSecret}")}");
+        Console.WriteLine($"[CLOUDINARY SIGNED DEBUG] Generated URL: {url}");
 
         return Result<string>.Ok(url);
     }
