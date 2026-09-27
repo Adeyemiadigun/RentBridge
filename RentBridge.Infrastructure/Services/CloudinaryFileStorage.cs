@@ -212,6 +212,12 @@ public sealed class CloudinaryFileStorage(
         }
     }
 
+    private static string Sha1Hex(string input)
+    {
+        var hash = SHA1.HashData(Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
     private static string Truncate(string value, int max = 300)
         => value.Length <= max ? value : value[..max];
 }
