@@ -93,6 +93,7 @@ public sealed class CloudinaryFileStorage(
         Console.WriteLine($"[CLOUDINARY DEBUG] Response status: {response.StatusCode}");
 
         var body = await response.Content.ReadAsStringAsync(ct);
+        Console.WriteLine($"[CLOUDINARY DEBUG] Response body: {body}");
         if (!response.IsSuccessStatusCode)
         {
             return Result<string>.Fail($"Upload failed ({response.StatusCode}): {Truncate(body)}");
@@ -105,6 +106,7 @@ public sealed class CloudinaryFileStorage(
                 urlElement.ValueKind == JsonValueKind.String)
             {
                 var url = urlElement.GetString();
+                Console.WriteLine($"[CLOUDINARY DEBUG] Secure URL: {url}");
                 if (!string.IsNullOrWhiteSpace(url))
                 {
                     return Result<string>.Ok(url);
