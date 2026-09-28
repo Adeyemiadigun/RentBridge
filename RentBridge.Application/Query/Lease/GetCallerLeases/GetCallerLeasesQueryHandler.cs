@@ -10,6 +10,7 @@ using RentBridge.Domain.Enums;
 using LeaseAggregate = RentBridge.Domain.Aggregates.Lease;
 using ListingAggregate = RentBridge.Domain.Aggregates.Listing;
 using UserAggregate = RentBridge.Domain.Aggregates.User;
+using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
 
 namespace RentBridge.Application.Query.Lease;
 
@@ -32,10 +33,11 @@ public sealed class GetCallerLeasesQueryHandler(
         var isAdmin = user.Role is UserRole.Admin;
 
         var paged = await unitOfWork.Repository<LeaseAggregate>().GetPagedAsync(
-            l => isAdmin
+            l => (isAdmin
                 || l.LandlordUserId == user.Id
                 || l.TenantUserId == user.Id
-                || l.AssignedLawyerId == user.Id,
+                || l.AssignedLawyerId == user.Id)
+                && l.ListingId != Guid.Empty,
             request.Page,
             request.PageSize,
             l => l.CreatedAt,
@@ -65,34 +67,50 @@ public sealed class GetCallerLeasesQueryHandler(
                 .FindAsync(x => userIds.Contains(x.Id), cancellationToken))
                 .ToDictionary(x => x.Id);
 
+        // Get properties for listings to filter out deleted properties
+        var propertyIds = listingsById.Values
+            .Where(l => l.PropertyId != Guid.Empty)
+            .Select(l => l.PropertyId)
+            .Distinct()
+            .ToList();
+
+        var propertiesById = propertyIds.Count == 0
+            ? new Dictionary<Guid, PropertyAggregate>()
+            : (await unitOfWork.Repository<PropertyAggregate>()
+                .FindAsync(x => propertyIds.Contains(x.Id), cancellationToken))
+                .ToDictionary(x => x.Id);
+
         LeasePartyItem? Party(Guid id)
         {
             if (!usersById.TryGetValue(id, out var u)) return null;
             return new LeasePartyItem(u.Id, $"{u.FirstName} {u.LastName}".Trim(), u.Email.Value);
         }
 
-        var items = leases.Select(l =>
-        {
-            var listing = listingsById.TryGetValue(l.ListingId, out var lg) ? lg : null;
-            return new LeaseListItem(
-                l.Id,
-                l.ListingId,
-                listing?.Title,
-                l.Status.ToString(),
-                l.CreatedAt,
-                null,
-                Party(l.TenantUserId),
-                Party(l.LandlordUserId),
-                l.AssignedLawyerId is Guid lawyerId ? Party(lawyerId) : null,
-                l.InspectionRequests
-                    .OrderByDescending(r => r.PreferredDate)
-                    .Select(r => new InspectionListItem(
-                        r.Id,
-                        r.Status.ToString(),
-                        r.PreferredDate,
-                        r.ScheduledDate,
-                        string.IsNullOrWhiteSpace(r.Note) ? null : r.Note))
-                    .FirstOrDefault());
+        var items = leases
+            .Where(l => listingsById.TryGetValue(l.ListingId, out var listing) && listing.PropertyId != Guid.Empty && propertiesById.ContainsKey(listing.PropertyId))
+            .Select(l =>
+            {
+                var listing = listingsById[l.ListingId];
+                var property = propertiesById[listing.PropertyId];
+                return new LeaseListItem(
+                    l.Id,
+                    l.ListingId,
+                    listing?.Title,
+                    l.Status.ToString(),
+                    l.CreatedAt,
+                    null,
+                    Party(l.TenantUserId),
+                    Party(l.LandlordUserId),
+                    l.AssignedLawyerId is Guid lawyerId ? Party(lawyerId) : null,
+                    l.InspectionRequests
+                        .OrderByDescending(r => r.PreferredDate)
+                        .Select(r => new InspectionListItem(
+                            r.Id,
+                            r.Status.ToString(),
+                            r.PreferredDate,
+                            r.ScheduledDate,
+                            string.IsNullOrWhiteSpace(r.Note) ? null : r.Note))
+                        .FirstOrDefault());
         }).ToList();
 
         return Result<PagedResult<LeaseListItem>>.Ok(

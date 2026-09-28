@@ -36,7 +36,7 @@ public sealed class GetListingsForModerationQueryHandler(
         }
 
         var page = await unitOfWork.Repository<ListingAggregate>().GetPagedAsync(
-            l => request.Status == null || l.Status == request.Status,
+            l => (request.Status == null || l.Status == request.Status) && l.PropertyId != Guid.Empty,
             request.Page,
             request.PageSize,
             orderBy: l => l.CreatedAt,
@@ -55,9 +55,10 @@ public sealed class GetListingsForModerationQueryHandler(
         var ownersById = ownerUsers.ToDictionary(u => u.Id, u => u);
 
         var items = page.Items
+            .Where(l => propertiesById.ContainsKey(l.PropertyId))
             .Select(l =>
             {
-                var property = propertiesById.GetValueOrDefault(l.PropertyId);
+                var property = propertiesById[l.PropertyId];
                 var owner = ownersById.GetValueOrDefault(l.OwnerUserId);
                 var ownerName = string.IsNullOrWhiteSpace(owner?.FirstName)
                     ? (owner?.Email.Value ?? string.Empty)
