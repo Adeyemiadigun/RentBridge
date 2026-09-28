@@ -40,8 +40,9 @@ public class RequestInspectionCommandHandler(
                     return Result.Fail("Lease not found");
                 }
 
-                logger.LogInformation("[DEBUG] Lease loaded: Id={id}, Status={status}, TenantUserId={tenantId}, LandlordUserId={landlordId}, InspectionRequestsCount={count}", 
-                    lease.Id, lease.Status, lease.TenantUserId, lease.LandlordUserId, lease.InspectionRequests.Count);
+                // Log Version/xmin for debugging concurrency (shadow property via reflection)
+                var versionVal = lease.GetType().GetProperty("Version")?.GetValue(lease) ?? "unknown";
+                logger.LogInformation("[DEBUG] Lease Version: {version}", versionVal);
                 foreach (var ir in lease.InspectionRequests)
                 {
                     logger.LogInformation("[DEBUG] InspectionRequest: Id={id}, Status={status}, PreferredDate={preferredDate}", ir.Id, ir.Status, ir.PreferredDate);

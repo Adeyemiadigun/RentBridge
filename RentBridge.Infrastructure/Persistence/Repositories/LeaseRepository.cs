@@ -30,8 +30,18 @@ public class LeaseRepository : ILeaseRepository
         Guid leaseId,
         CancellationToken ct)
     {
-        return await _context.Set<Lease>()
-            .Include(l => l.InspectionRequests)
-            .FirstOrDefaultAsync(l => l.Id == leaseId, ct);
+        // Step 1: Load lease by PK (FindAsync properly loads all shadow properties including Version/xmin)
+        var entity = await _context.Set<Lease>().FindAsync([leaseId], ct);
+        if (entity is null)
+            return null;
+
+        // Step 2: Explicitly load InspectionRequests collection
+        await _context.Entry(entity).Collection(l => l.InspectionRequests).LoadAsync(ct);
+        
+        // Verify Version/xmin was loaded
+        var versionVal = _context.Entry(entity).Property("Version").CurrentValue;
+        System.Diagnostics.Debug.WriteLine($"[DEBUG REPO] Loaded lease {entity.Id}, Version={versionVal}");
+        
+        return entity;
     }
 }

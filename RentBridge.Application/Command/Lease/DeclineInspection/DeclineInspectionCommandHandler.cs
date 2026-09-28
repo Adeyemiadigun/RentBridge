@@ -41,6 +41,10 @@ public class DeclineInspectionCommandHandler(
                     return Result.Fail("Lease not found");
                 }
 
+                // Log Version for debugging concurrency
+                var versionVal = lease.GetType().GetProperty("Version")?.GetValue(lease) ?? "unknown";
+                logger.LogInformation("[DEBUG] Lease Version: {version}", versionVal);
+
                 logger.LogInformation("[DEBUG] Lease loaded: Id={id}, Status={status}, LandlordUserId={landlordId}, InspectionRequestsCount={count}", 
                     lease.Id, lease.Status, lease.LandlordUserId, lease.InspectionRequests.Count);
                 foreach (var ir in lease.InspectionRequests)
