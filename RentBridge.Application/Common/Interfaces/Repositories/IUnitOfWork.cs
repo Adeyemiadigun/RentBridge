@@ -21,5 +21,10 @@ namespace RentBridge.Application.Common.Interfaces.Repositories
         /// A DB-level guard against double payouts.
         /// </summary>
         Task<bool> TryClaimEscrowPayoutAsync(Guid escrowPaymentId, string payoutReference, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Clears the EF Core change tracker to force fresh entity loads on retry.
+        /// </summary>
+        void ClearChangeTracker();
     }
 }

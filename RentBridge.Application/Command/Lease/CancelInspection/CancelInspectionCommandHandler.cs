@@ -55,6 +55,7 @@ public class CancelInspectionCommandHandler(
             catch (DbUpdateConcurrencyException ex) when (attempt < 2)
             {
                 logger.LogWarning("Concurrency conflict on lease {leaseId}, attempt {attempt}/3", request.LeaseId, attempt + 1);
+                unitOfWork.ClearChangeTracker();
                 await Task.Delay(TimeSpan.FromMilliseconds(100 * (attempt + 1)), cancellationToken);
                 continue;
             }

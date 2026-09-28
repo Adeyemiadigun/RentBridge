@@ -68,6 +68,8 @@ public class RequestInspectionCommandHandler(
             catch (DbUpdateConcurrencyException ex) when (attempt < MaxRetryAttempts - 1)
             {
                 logger.LogWarning("[DEBUG] Concurrency conflict on lease {leaseId}, attempt {attempt}/{maxAttempts}", request.LeaseId, attempt + 1, MaxRetryAttempts);
+                // Clear change tracker to force fresh load on retry
+                unitOfWork.ClearChangeTracker();
                 await Task.Delay(TimeSpan.FromMilliseconds(100 * (attempt + 1)), cancellationToken);
                 continue;
             }
