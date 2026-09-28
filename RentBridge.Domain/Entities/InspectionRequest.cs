@@ -59,6 +59,16 @@ public class InspectionRequest
         return Result.Ok();
     }
 
+    public Result UpdateDetails(DateTimeOffset preferredDate, string? note = null)
+    {
+        if (Status != InspectionStatus.Pending)
+            return Result.Fail("Only pending inspections can be updated");
+        PreferredDate = preferredDate;
+        if (!string.IsNullOrWhiteSpace(note))
+            Note = note;
+        return Result.Ok();
+    }
+
     public Result ProposeReschedule(DateTimeOffset newDate, string? note = null)
     {
         if (Status != InspectionStatus.Confirmed)

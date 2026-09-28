@@ -51,6 +51,16 @@ public class CreateLeaseCommandHandler(
                     return Result<Guid>.Fail("You cannot rent your own listing");
                 }
 
+                // Check if lease already exists for this listing and user
+                var existingLease = await unitOfWork.Repository<LeaseAggregate>()
+                    .FirstOrDefault(l => l.ListingId == request.ListingId && l.TenantUserId == user.Id, cancellationToken);
+                
+                if (existingLease is not null)
+                {
+                    logger.LogInformation("Lease already exists for listing {listingId} and user {userId}", request.ListingId, user.Id);
+                    return Result<Guid>.Ok(existingLease.Id);
+                }
+
                 var lease = new LeaseAggregate(listing.Id, user.Id, listing.OwnerUserId);
                 unitOfWork.Repository<LeaseAggregate>().Add(lease);
                 await unitOfWork.SaveChangesAsync(cancellationToken);

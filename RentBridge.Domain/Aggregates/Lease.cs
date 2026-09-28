@@ -48,8 +48,19 @@ public class Lease : Entity<Guid>
         if (Status is not (LeaseStatus.Initiated or LeaseStatus.InspectionRequested))
             return Result.Fail("Inspection can only be requested before the inspection is confirmed.");
 
-        if (_inspectionRequests.Any(r => r.Status == InspectionStatus.Pending))
-            return Result.Fail("A pending inspection request already exists for this lease.");
+        // If there's already a pending inspection request, return success (idempotent)
+        var existingPending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Pending);
+        if (existingPending is not null)
+        {
+            // Update the preferred date and note if provided
+            var result = existingPending.UpdateDetails(preferredDate, note);
+            if (!result.IsSuccess)
+                return result;
+            if (Status == LeaseStatus.Initiated)
+                Status = LeaseStatus.InspectionRequested;
+            Raise(new InspectionRequested(Id, preferredDate));
+            return Result.Ok();
+        }
 
         _inspectionRequests.Add(new InspectionRequest(tenantUserId, preferredDate, note));
         if (Status == LeaseStatus.Initiated)
