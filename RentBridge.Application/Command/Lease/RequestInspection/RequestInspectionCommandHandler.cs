@@ -29,7 +29,7 @@ public class RequestInspectionCommandHandler(
         {
             try
             {
-                var lease = await unitOfWork.Repository<LeaseAggregate>().GetByIdAsync(request.LeaseId, cancellationToken);
+                var lease = await unitOfWork.Leases.GetWithInspectionRequestsAsync(request.LeaseId, cancellationToken);
                 if (lease is null)
                 {
                     logger.LogInformation("Lease {leaseId} not found", request.LeaseId);
@@ -55,7 +55,6 @@ public class RequestInspectionCommandHandler(
             catch (DbUpdateConcurrencyException ex) when (attempt < MaxRetryAttempts - 1)
             {
                 logger.LogWarning("Concurrency conflict on lease {leaseId}, attempt {attempt}/{maxAttempts}", request.LeaseId, attempt + 1, MaxRetryAttempts);
-                // Wait a bit before retrying with exponential backoff
                 await Task.Delay(TimeSpan.FromMilliseconds(100 * (attempt + 1)), cancellationToken);
                 continue;
             }

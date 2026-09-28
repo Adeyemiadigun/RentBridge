@@ -25,4 +25,13 @@ public class LeaseRepository : ILeaseRepository
                 && p.PayoutStartedAt < cutoff))
             .ToListAsync(ct);
     }
+
+    public async Task<Lease?> GetWithInspectionRequestsAsync(
+        Guid leaseId,
+        CancellationToken ct)
+    {
+        return await _context.Set<Lease>()
+            .Include(l => l.InspectionRequests)
+            .FirstOrDefaultAsync(l => l.Id == leaseId, ct);
+    }
 }

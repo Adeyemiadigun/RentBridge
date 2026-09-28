@@ -29,7 +29,7 @@ public class CancelInspectionCommandHandler(
         {
             try
             {
-                var lease = await unitOfWork.Repository<LeaseAggregate>().GetByIdAsync(request.LeaseId, cancellationToken);
+                var lease = await unitOfWork.Leases.GetWithInspectionRequestsAsync(request.LeaseId, cancellationToken);
                 if (lease is null)
                 {
                     logger.LogInformation("Lease {leaseId} not found", request.LeaseId);
