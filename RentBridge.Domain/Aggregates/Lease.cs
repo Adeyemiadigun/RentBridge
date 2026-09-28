@@ -52,6 +52,8 @@ public class Lease : Entity<Guid>
             return Result.Fail("A pending inspection request already exists for this lease.");
 
         _inspectionRequests.Add(new InspectionRequest(tenantUserId, preferredDate, note));
+        if (Status == LeaseStatus.Initiated)
+            Status = LeaseStatus.InspectionRequested;
         Raise(new InspectionRequested(Id, preferredDate));
         return Result.Ok();
     }
