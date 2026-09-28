@@ -45,23 +45,37 @@ public class Lease : Entity<Guid>
 
     public Result RequestInspection(Guid tenantUserId, DateTimeOffset preferredDate, string? note = null)
     {
+        Console.WriteLine($"[DEBUG DOMAIN] RequestInspection called. Status={Status}, InspectionRequestsCount={_inspectionRequests.Count}");
+        foreach (var ir in _inspectionRequests)
+        {
+            Console.WriteLine($"[DEBUG DOMAIN]   InspectionRequest: Id={ir.Id}, Status={ir.Status}, PreferredDate={ir.PreferredDate}");
+        }
+
         if (Status is not (LeaseStatus.Initiated or LeaseStatus.InspectionRequested))
+        {
+            Console.WriteLine($"[DEBUG DOMAIN] RequestInspection failed: Status={Status} not in (Initiated, InspectionRequested)");
             return Result.Fail("Inspection can only be requested before the inspection is confirmed.");
+        }
 
         // If there's already a pending inspection request, return success (idempotent)
         var existingPending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Pending);
         if (existingPending is not null)
         {
+            Console.WriteLine($"[DEBUG DOMAIN] Found existing pending inspection: {existingPending.Id}");
             // Update the preferred date and note if provided
             var result = existingPending.UpdateDetails(preferredDate, note);
             if (!result.IsSuccess)
+            {
+                Console.WriteLine($"[DEBUG DOMAIN] UpdateDetails failed: {result.Error}");
                 return result;
+            }
             if (Status == LeaseStatus.Initiated)
                 Status = LeaseStatus.InspectionRequested;
             Raise(new InspectionRequested(Id, preferredDate));
             return Result.Ok();
         }
 
+        Console.WriteLine($"[DEBUG DOMAIN] Adding new InspectionRequest");
         _inspectionRequests.Add(new InspectionRequest(tenantUserId, preferredDate, note));
         if (Status == LeaseStatus.Initiated)
             Status = LeaseStatus.InspectionRequested;
@@ -71,39 +85,85 @@ public class Lease : Entity<Guid>
 
     public Result BeginInspectionFlow()
     {
-        if (Status != LeaseStatus.Initiated) return Result.Fail("Cannot start inspection from current state.");
+        Console.WriteLine($"[DEBUG DOMAIN] BeginInspectionFlow called. Status={Status}");
+        if (Status != LeaseStatus.Initiated) 
+        {
+            Console.WriteLine($"[DEBUG DOMAIN] BeginInspectionFlow failed: Status={Status} != Initiated");
+            return Result.Fail("Cannot start inspection from current state.");
+        }
         Status = LeaseStatus.InspectionRequested;
+        Console.WriteLine($"[DEBUG DOMAIN] BeginInspectionFlow succeeded, Status now={Status}");
         return Result.Ok();
     }
 
     public Result ConfirmInspection(DateTimeOffset? scheduledDate = null, string? notes = null)
     {
-        if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection to confirm.");
+        Console.WriteLine($"[DEBUG DOMAIN] ConfirmInspection called. Status={Status}, InspectionRequestsCount={_inspectionRequests.Count}");
+        foreach (var ir in _inspectionRequests)
+        {
+            Console.WriteLine($"[DEBUG DOMAIN]   InspectionRequest: Id={ir.Id}, Status={ir.Status}");
+        }
+
+        if (Status != LeaseStatus.InspectionRequested) 
+        {
+            Console.WriteLine($"[DEBUG DOMAIN] ConfirmInspection failed: Status={Status} != InspectionRequested");
+            return Result.Fail("No pending inspection to confirm.");
+        }
 
         var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
-        if (pending is null) return Result.Fail("No pending inspection request to confirm.");
+        if (pending is null) 
+        {
+            Console.WriteLine($"[DEBUG DOMAIN] ConfirmInspection failed: No pending inspection request found");
+            return Result.Fail("No pending inspection request to confirm.");
+        }
 
+        Console.WriteLine($"[DEBUG DOMAIN] Found pending inspection: {pending.Id}");
         var result = pending.Confirm(scheduledDate, notes);
-        if (!result.IsSuccess) return result;
+        if (!result.IsSuccess) 
+        {
+            Console.WriteLine($"[DEBUG DOMAIN] pending.Confirm failed: {result.Error}");
+            return result;
+        }
 
         Status = LeaseStatus.InspectionConfirmed;
         InspectionGatePassed = DateTimeOffset.UtcNow;
         Raise(new InspectionConfirmed(Id));
+        Console.WriteLine($"[DEBUG DOMAIN] ConfirmInspection succeeded, Status now={Status}");
         return Result.Ok();
     }
 
     public Result DeclinePendingInspection()
     {
-        if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection flow to decline.");
+        Console.WriteLine($"[DEBUG DOMAIN] DeclinePendingInspection called. Status={Status}, InspectionRequestsCount={_inspectionRequests.Count}");
+        foreach (var ir in _inspectionRequests)
+        {
+            Console.WriteLine($"[DEBUG DOMAIN]   InspectionRequest: Id={ir.Id}, Status={ir.Status}");
+        }
+
+        if (Status != LeaseStatus.InspectionRequested) 
+        {
+            Console.WriteLine($"[DEBUG DOMAIN] DeclinePendingInspection failed: Status={Status} != InspectionRequested");
+            return Result.Fail("No pending inspection flow to decline.");
+        }
 
         var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
-        if (pending is null) return Result.Fail("No pending inspection request to decline.");
+        if (pending is null) 
+        {
+            Console.WriteLine($"[DEBUG DOMAIN] DeclinePendingInspection failed: No pending inspection request found");
+            return Result.Fail("No pending inspection request to decline.");
+        }
 
+        Console.WriteLine($"[DEBUG DOMAIN] Found pending inspection: {pending.Id}");
         var result = pending.Decline();
-        if (!result.IsSuccess) return result;
+        if (!result.IsSuccess) 
+        {
+            Console.WriteLine($"[DEBUG DOMAIN] pending.Decline failed: {result.Error}");
+            return result;
+        }
 
         Status = LeaseStatus.Initiated;
         Raise(new InspectionDeclined(Id));
+        Console.WriteLine($"[DEBUG DOMAIN] DeclinePendingInspection succeeded, Status now={Status}");
         return Result.Ok();
     }
 

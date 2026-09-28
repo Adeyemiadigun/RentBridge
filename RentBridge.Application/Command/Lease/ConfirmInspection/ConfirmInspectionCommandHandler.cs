@@ -20,54 +20,67 @@ public class ConfirmInspectionCommandHandler(
 
     public async Task<Result> Handle(ConfirmInspectionCommand request, CancellationToken cancellationToken)
     {
+        logger.LogInformation("[DEBUG] ConfirmInspectionCommand received for LeaseId: {leaseId}", request.LeaseId);
         var res = await currentUser.GetCurrentUser(true, cancellationToken);
         if (!res.IsSuccess)
         {
+            logger.LogWarning("[DEBUG] GetCurrentUser failed: {error}", res.Error);
             return Result.Fail(res.Error!);
         }
         var user = res.Value;
+        logger.LogInformation("[DEBUG] Current user: {userId}, Role: {role}", user.Id, user.Role);
 
         for (int attempt = 0; attempt < 3; attempt++)
         {
             try
             {
+                logger.LogInformation("[DEBUG] Attempt {attempt}: Loading lease {leaseId} with inspection requests", attempt + 1, request.LeaseId);
                 var lease = await unitOfWork.Leases.GetWithInspectionRequestsAsync(request.LeaseId, cancellationToken);
                 if (lease is null)
                 {
-                    logger.LogInformation("Lease {leaseId} not found", request.LeaseId);
+                    logger.LogInformation("[DEBUG] Lease {leaseId} not found", request.LeaseId);
                     return Result.Fail("Lease not found");
+                }
+
+                logger.LogInformation("[DEBUG] Lease loaded: Id={id}, Status={status}, LandlordUserId={landlordId}, InspectionRequestsCount={count}", 
+                    lease.Id, lease.Status, lease.LandlordUserId, lease.InspectionRequests.Count);
+                foreach (var ir in lease.InspectionRequests)
+                {
+                    logger.LogInformation("[DEBUG] InspectionRequest: Id={id}, Status={status}, PreferredDate={preferredDate}", ir.Id, ir.Status, ir.PreferredDate);
                 }
 
                 if (lease.LandlordUserId != user.Id && user.Role != UserRole.Admin)
                 {
-                    logger.LogInformation("User {userId} is not authorized to confirm inspection for lease {leaseId}", user.Id, request.LeaseId);
+                    logger.LogInformation("[DEBUG] User {userId} is not authorized to confirm inspection for lease {leaseId}", user.Id, request.LeaseId);
                     return Result.Fail("Only the landlord or an admin can confirm an inspection");
                 }
 
                 var result = lease.ConfirmInspection(request.ScheduledDate, request.Notes);
                 if (!result.IsSuccess)
                 {
-                    logger.LogInformation("Lease {leaseId} cannot confirm inspection: {error}", request.LeaseId, result.Error);
+                    logger.LogInformation("[DEBUG] Lease {leaseId} cannot confirm inspection: {error}", request.LeaseId, result.Error);
                     return Result.Fail(result.Error!);
                 }
 
+                logger.LogInformation("[DEBUG] Saving changes...");
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
                 // Inspection is one of the three release gates; if escrow is already
                 // funded and this was the last gate, the payout runs now.
                 await releaseService.TryAutoReleaseAsync(lease.Id, cancellationToken);
 
+                logger.LogInformation("[DEBUG] ConfirmInspection succeeded");
                 return Result.Ok();
             }
             catch (DbUpdateConcurrencyException ex) when (attempt < 2)
             {
-                logger.LogWarning("Concurrency conflict on lease {leaseId}, attempt {attempt}/3", request.LeaseId, attempt + 1);
+                logger.LogWarning("[DEBUG] Concurrency conflict on lease {leaseId}, attempt {attempt}/3", request.LeaseId, attempt + 1);
                 await Task.Delay(TimeSpan.FromMilliseconds(100 * (attempt + 1)), cancellationToken);
                 continue;
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                logger.LogError(ex, "Max retry attempts reached for lease {leaseId}", request.LeaseId);
+                logger.LogError(ex, "[DEBUG] Max retry attempts reached for lease {leaseId}", request.LeaseId);
                 return Result.Fail("The lease was modified by another process. Please try again.");
             }
         }
