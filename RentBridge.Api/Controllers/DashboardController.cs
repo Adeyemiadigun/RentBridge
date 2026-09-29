@@ -16,6 +16,11 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/dashboard")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
 public sealed class DashboardController(IMediator mediator) : ControllerBase
 {
     /// <summary>Returns the signed-in owner's dashboard.</summary>

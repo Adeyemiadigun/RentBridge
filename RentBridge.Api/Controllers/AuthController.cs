@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentBridge.Application.Command.Auth;
 using RentBridge.Application.Command.RegisterUser;
+using RentBridge.Application.Query.Auth;
 
 namespace RentBridge.Api.Controllers;
 
@@ -11,11 +12,15 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/auth")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
 public sealed class AuthController(IMediator mediator) : ControllerBase
 {
     /// <summary>
     /// Registers a new user. Pass the role as one of: Landlord, Tenant,
-    /// Caretaker, Agent, Lawyer, Admin. Lawyers must include a BarNumber.
+    /// Caretaker, Agent, Lawyer. Lawyers must include a BarNumber.
+    /// Admin accounts cannot be created here (seeded + default-admin only).
     /// </summary>
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] registerUserCommand command, CancellationToken ct)
@@ -30,6 +35,7 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("login")]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginCommand request, CancellationToken ct)
     {
         var result = await mediator.Send(request, ct);
@@ -42,6 +48,7 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
     }
 
     [HttpPost("refresh")]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Refresh([FromBody] RefreshAccessTokenCommand request, CancellationToken ct)
     {
         var result = await mediator.Send(request, ct);
@@ -63,5 +70,23 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
         }
 
         return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// Returns the caller's profile (name, email, phone, role, KYC status).
+    /// The JWT only carries claims; this endpoint is the real profile source.
+    /// </summary>
+    [Authorize]
+    [HttpGet("me")]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Me(CancellationToken ct)
+    {
+        var result = await mediator.Send(new GetMyProfileQuery(), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
     }
 }

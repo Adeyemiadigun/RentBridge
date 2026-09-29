@@ -22,23 +22,20 @@ public class BeginInspectionFlowCommandHandler(
         }
         var user = res.Value;
 
-        var lease = await unitOfWork.Repository<LeaseAggregate>().GetByIdAsync(request.LeaseId, cancellationToken);
+        var lease = await unitOfWork.Leases.GetWithInspectionRequestsAsync(request.LeaseId, cancellationToken);
         if (lease is null)
         {
-            logger.LogInformation("Lease {leaseId} not found", request.LeaseId);
             return Result.Fail("Lease not found");
         }
 
         if (lease.LandlordUserId != user.Id)
         {
-            logger.LogInformation("User {userId} is not the landlord of lease {leaseId}", user.Id, request.LeaseId);
             return Result.Fail("Only the landlord can begin the inspection flow");
         }
 
         var result = lease.BeginInspectionFlow();
         if (!result.IsSuccess)
         {
-            logger.LogInformation("Lease {leaseId} cannot begin inspection: {error}", request.LeaseId, result.Error);
             return Result.Fail(result.Error!);
         }
 

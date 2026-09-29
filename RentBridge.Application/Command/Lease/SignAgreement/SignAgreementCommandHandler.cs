@@ -58,6 +58,10 @@ public sealed class SignAgreementCommandHandler(
             return Result.Fail(sign.Error!);
         }
 
+        // A brand-new SignatureRecord added to an already-tracked Agreement is picked up
+        // as Modified, so EF would UPDATE a row that was never inserted.
+        unitOfWork.MarkAsAdded(signature);
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Ok();
     }

@@ -124,6 +124,10 @@ public sealed class FundEscrowCommandHandler(
             {
                 return Result<FundEscrowResponse>.Fail(record.Error!);
             }
+
+            // A brand-new EscrowPayment added to an already-tracked Lease is picked up as
+            // Modified, so EF would UPDATE a row that was never inserted.
+            unitOfWork.MarkAsAdded(payment);
         }
 
         payment.AttachSplit(split.Value);

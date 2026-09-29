@@ -38,7 +38,7 @@ public sealed class PaystackEscrowProvider(
         };
 
         using var response = await httpClient.PostAsJsonAsync(
-            $"{Base()}/transaction/initialize", body, JsonOptions, cancellationToken);
+            "/transaction/initialize", body, JsonOptions, cancellationToken);
 
         var payload = await DeserializeAsync<InitializeResponse>(response, cancellationToken);
         if (!response.IsSuccessStatusCode || payload is not { Status: true })
@@ -58,7 +58,9 @@ public sealed class PaystackEscrowProvider(
         string signatureHeader,
         CancellationToken cancellationToken)
     {
-        var webhookSecret = options.Paystack.WebhookSecret;
+        // Paystack signs webhooks with the Secret Key (no separate webhook secret
+        // exists); ResolvedWebhookSecret falls back to it when unset.
+        var webhookSecret = options.Paystack.ResolvedWebhookSecret;
         if (string.IsNullOrWhiteSpace(webhookSecret) || string.IsNullOrWhiteSpace(signatureHeader))
         {
             return Result<PaymentNotification>.Fail("Paystack webhook signature cannot be verified.");
@@ -117,7 +119,7 @@ public sealed class PaystackEscrowProvider(
         };
 
         using var response = await httpClient.PostAsJsonAsync(
-            $"{Base()}/transfer", body, JsonOptions, cancellationToken);
+            "/transfer", body, JsonOptions, cancellationToken);
 
         var payload = await DeserializeAsync<TransferResponse>(response, cancellationToken);
         if (!response.IsSuccessStatusCode || payload is not { Status: true })
@@ -133,7 +135,7 @@ public sealed class PaystackEscrowProvider(
         string reference,
         CancellationToken cancellationToken)
     {
-        var url = $"{Base()}/transfer/verify/{Uri.EscapeDataString(reference)}";
+        var url = $"/transfer/verify/{Uri.EscapeDataString(reference)}";
         using var response = await httpClient.GetAsync(url, cancellationToken);
 
         var payload = await DeserializeAsync<TransferResponse>(response, cancellationToken);
@@ -151,7 +153,7 @@ public sealed class PaystackEscrowProvider(
         string currency,
         CancellationToken cancellationToken)
     {
-        var url = $"{Base()}/bank?country={Uri.EscapeDataString(country)}&currency={Uri.EscapeDataString(currency)}";
+        var url = $"/bank?country={Uri.EscapeDataString(country)}&currency={Uri.EscapeDataString(currency)}";
         var payload = await GetAsync<BankListResponse>(url, cancellationToken);
         if (payload is not { Status: true } || payload.Data is null)
         {
@@ -171,7 +173,7 @@ public sealed class PaystackEscrowProvider(
         string bankCode,
         CancellationToken cancellationToken)
     {
-        var url = $"{Base()}/bank/resolve?account_number={Uri.EscapeDataString(accountNumber)}&bank_code={Uri.EscapeDataString(bankCode)}";
+        var url = $"/bank/resolve?account_number={Uri.EscapeDataString(accountNumber)}&bank_code={Uri.EscapeDataString(bankCode)}";
         var payload = await GetAsync<ResolveResponse>(url, cancellationToken);
         if (payload is not { Status: true } || payload.Data is null || string.IsNullOrWhiteSpace(payload.Data.AccountName))
         {
@@ -196,7 +198,7 @@ public sealed class PaystackEscrowProvider(
         };
 
         using var response = await httpClient.PostAsJsonAsync(
-            $"{Base()}/transferrecipient", body, JsonOptions, cancellationToken);
+            "/transferrecipient", body, JsonOptions, cancellationToken);
 
         var payload = await DeserializeAsync<RecipientResponse>(response, cancellationToken);
         if (!response.IsSuccessStatusCode || payload is not { Status: true } || string.IsNullOrWhiteSpace(payload.Data?.RecipientCode))
@@ -227,8 +229,6 @@ public sealed class PaystackEscrowProvider(
             return default;
         }
     }
-
-    private string Base() => options.Paystack.BaseUrl.TrimEnd('/');
 
     private long ToMinorUnits(decimal amount) => (long)decimal.Round(amount * 100m, 0, MidpointRounding.AwayFromZero);
 

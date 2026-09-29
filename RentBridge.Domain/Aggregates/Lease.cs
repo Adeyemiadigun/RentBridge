@@ -43,21 +43,48 @@ public class Lease : Entity<Guid>
         Raise(new LeaseCreated(Id));
     }
 
-    public Result RequestInspection(Guid tenantUserId, DateTimeOffset preferredDate, string? note = null)
+    /// <summary>
+    /// Requests an inspection for this lease. The returned value is the newly created
+    /// <see cref="InspectionRequest"/>, or null when an already-pending request was
+    /// updated instead (idempotent path).
+    /// </summary>
+    public Result<InspectionRequest?> RequestInspection(Guid tenantUserId, DateTimeOffset preferredDate, string? note = null)
     {
         if (Status is not (LeaseStatus.Initiated or LeaseStatus.InspectionRequested))
-            return Result.Fail("Inspection can only be requested before the inspection is confirmed.");
+        {
+            return Result<InspectionRequest?>.Fail("Inspection can only be requested before the inspection is confirmed.");
+        }
 
-        if (_inspectionRequests.Any(r => r.Status == InspectionStatus.Pending))
-            return Result.Fail("A pending inspection request already exists for this lease.");
+        // Idempotent: an already-pending request is updated rather than rejected,
+        // so re-requesting a new date never dead-ends the tenant.
+        var existingPending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Pending);
+        if (existingPending is not null)
+        {
+            var result = existingPending.UpdateDetails(preferredDate, note);
+            if (!result.IsSuccess)
+            {
+                return Result<InspectionRequest?>.Fail(result.Error!);
+            }
+            if (Status == LeaseStatus.Initiated)
+                Status = LeaseStatus.InspectionRequested;
+            Raise(new InspectionRequested(Id, preferredDate));
+            return Result<InspectionRequest?>.Ok(null);
+        }
 
-        _inspectionRequests.Add(new InspectionRequest(tenantUserId, preferredDate, note));
+        var newRequest = new InspectionRequest(tenantUserId, preferredDate, note);
+        _inspectionRequests.Add(newRequest);
+        if (Status == LeaseStatus.Initiated)
+            Status = LeaseStatus.InspectionRequested;
         Raise(new InspectionRequested(Id, preferredDate));
-        return Result.Ok();
+        return Result<InspectionRequest?>.Ok(newRequest);
     }
 
     public Result BeginInspectionFlow()
     {
+        // Idempotent: the flow is already open (a retry, or a client calling
+        // begin before/after another request moved it). Landing here again is
+        // not an error — otherwise callers dead-end with no way to recover.
+        if (Status == LeaseStatus.InspectionRequested) return Result.Ok();
         if (Status != LeaseStatus.Initiated) return Result.Fail("Cannot start inspection from current state.");
         Status = LeaseStatus.InspectionRequested;
         return Result.Ok();
@@ -65,13 +92,22 @@ public class Lease : Entity<Guid>
 
     public Result ConfirmInspection(DateTimeOffset? scheduledDate = null, string? notes = null)
     {
-        if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection to confirm.");
+        if (Status != LeaseStatus.InspectionRequested)
+        {
+            return Result.Fail("No pending inspection to confirm.");
+        }
 
         var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
-        if (pending is null) return Result.Fail("No pending inspection request to confirm.");
+        if (pending is null)
+        {
+            return Result.Fail("No pending inspection request to confirm.");
+        }
 
         var result = pending.Confirm(scheduledDate, notes);
-        if (!result.IsSuccess) return result;
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
 
         Status = LeaseStatus.InspectionConfirmed;
         InspectionGatePassed = DateTimeOffset.UtcNow;
@@ -81,13 +117,22 @@ public class Lease : Entity<Guid>
 
     public Result DeclinePendingInspection()
     {
-        if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection flow to decline.");
+        if (Status != LeaseStatus.InspectionRequested)
+        {
+            return Result.Fail("No pending inspection flow to decline.");
+        }
 
         var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
-        if (pending is null) return Result.Fail("No pending inspection request to decline.");
+        if (pending is null)
+        {
+            return Result.Fail("No pending inspection request to decline.");
+        }
 
         var result = pending.Decline();
-        if (!result.IsSuccess) return result;
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
 
         Status = LeaseStatus.Initiated;
         Raise(new InspectionDeclined(Id));
@@ -157,19 +202,29 @@ public class Lease : Entity<Guid>
         return Result.Ok();
     }
 
+    /// <summary>
+    /// Bookkeeping only — assigns the reviewing lawyer WITHOUT advancing the
+    /// lease. The InspectionConfirmed → LegalReview move belongs solely to
+    /// BeginLegalReview, so confirmation leaves the lease inspectable (a
+    /// reschedule can still be requested) until legal review is started
+    /// explicitly.
+    /// </summary>
     public Result AssignLawyer(Guid lawyerId)
     {
-        if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("Assign a lawyer only after inspection is confirmed.");
+        if (Agreement.IsCertified)
+            return Result.Fail("Cannot change the assigned lawyer after the agreement is certified.");
+
         AssignedLawyerId = lawyerId;
-        Status = LeaseStatus.LegalReview;
         Raise(new LawyerAssigned(Id, lawyerId));
         return Result.Ok();
     }
 
+    /// <summary>The single transition into legal review. Idempotent.</summary>
     public Result BeginLegalReview()
     {
         if (Status == LeaseStatus.LegalReview) return Result.Ok();
         if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("Inspection must be confirmed before legal review.");
+        if (AssignedLawyerId is null) return Result.Fail("A lawyer must be assigned before legal review.");
         Status = LeaseStatus.LegalReview;
         return Result.Ok();
     }

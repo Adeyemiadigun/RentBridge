@@ -18,6 +18,9 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersionNeutral]
 [Route("api/webhooks/dojah")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
 public sealed class DojahWebhookController(
     IMediator mediator,
     IDojahSignatureValidator signatureValidator,

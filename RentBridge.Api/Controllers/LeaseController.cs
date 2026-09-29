@@ -13,6 +13,11 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/leases")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
 public sealed class LeaseController(IMediator mediator) : ControllerBase
 {
     /// <summary>
@@ -29,6 +34,23 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         }
 
         return Ok(new { leaseId = result.Value });
+    }
+
+    /// <summary>
+    /// Lists leases involving the caller (as landlord, tenant or assigned
+    /// lawyer; admins see all), newest first, with party names and the
+    /// latest inspection request included per row.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> List(CancellationToken ct, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var result = await mediator.Send(new GetCallerLeasesQuery(page, pageSize), ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(result.Value);
     }
 
     /// <summary>
@@ -67,6 +89,8 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
     /// The landlord or an admin confirms the inspection
     /// (InspectionRequested → InspectionConfirmed). Optionally records the
     /// scheduled physical-inspection date and notes. Raises InspectionConfirmed.
+    /// A lawyer is auto-assigned here, but the lease stays in
+    /// InspectionConfirmed — call POST legal-review to advance it.
     /// </summary>
     [HttpPost("{leaseId:guid}/inspection/confirm")]
     public async Task<IActionResult> ConfirmInspection(Guid leaseId, [FromBody] ConfirmInspectionRequest? request, CancellationToken ct)
@@ -78,7 +102,12 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
             return BadRequest(new { error = result.Error });
         }
 
-        return Ok(new { success = true });
+        return Ok(new
+        {
+            success = true,
+            leaseId = result.Value.LeaseId,
+            status = result.Value.Status,
+        });
     }
 
     /// <summary>
@@ -233,6 +262,8 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
     /// and signature blocks + audit trail).
     /// </summary>
     [HttpGet("{leaseId:guid}/agreement/pdf")]
+    [Produces("application/pdf")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAgreementPdf(Guid leaseId, CancellationToken ct)
     {
         var result = await mediator.Send(new GetLeaseAgreementPdfQuery(leaseId), ct);

@@ -52,7 +52,7 @@ public sealed class SmileIdentityVerificationProvider : IIdentityVerificationPro
             "Smile ID uses the client SDK flow; no synchronous verification available. " +
             "Call CreateSdkSessionAsync and submit the biometric_kyc job from the device."));
 
-    public async Task<Result<string>> CreateSdkSessionAsync(
+    public async Task<Result<SdkSession>> CreateSdkSessionAsync(
         Guid kycVerificationId, string nin, CancellationToken ct)
     {
         try
@@ -73,7 +73,7 @@ public sealed class SmileIdentityVerificationProvider : IIdentityVerificationPro
             {
                 _logger.LogWarning("Smile token request failed ({Status}): {Body}",
                     (int)response.StatusCode, responseBody);
-                return Result<string>.Fail($"Smile ID token request failed: {responseBody}");
+                return Result<SdkSession>.Fail($"Smile ID token request failed: {responseBody}");
             }
 
             using var doc = JsonDocument.Parse(responseBody);
@@ -83,15 +83,32 @@ public sealed class SmileIdentityVerificationProvider : IIdentityVerificationPro
 
             if (string.IsNullOrWhiteSpace(token))
             {
-                return Result<string>.Fail("Smile ID token response did not contain a token.");
+                return Result<SdkSession>.Fail("Smile ID token response did not contain a token.");
             }
 
-            return Result<string>.Ok(token);
+            var environment = _configuration["Smile:Environment"]?.Trim().ToLowerInvariant() == "production"
+                ? "production"
+                : "sandbox";
+
+            return Result<SdkSession>.Ok(new SdkSession(
+                kycVerificationId.ToString("D"),
+                new Dictionary<string, string?>(StringComparer.Ordinal)
+                {
+                    ["token"] = token,
+                    ["partnerId"] = partnerId,
+                    ["environment"] = environment,
+                    ["country"] = "NG",
+                    ["idType"] = "NIN",
+                    ["idNumber"] = nin,
+                    ["callbackUrl"] = _configuration["Smile:CallbackUrl"],
+                    ["privacyPolicyUrl"] = _configuration["Smile:PrivacyPolicyUrl"],
+                    ["productType"] = "biometric_kyc",
+                }));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error requesting a Smile ID token");
-            return Result<string>.Fail("An unexpected error occurred while requesting the verification token");
+            return Result<SdkSession>.Fail("An unexpected error occurred while requesting the verification token");
         }
     }
 }

@@ -21,7 +21,9 @@ public sealed record ListingModerationItem(
     string Currency,
     ListingStatus Status,
     Guid OwnerUserId,
+    string OwnerName,
     Guid PropertyId,
+    string Location,
     bool PropertyVerified,
     DateTimeOffset CreatedAt,
     DateTimeOffset? PublishedAt);

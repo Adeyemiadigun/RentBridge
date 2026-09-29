@@ -15,6 +15,15 @@ namespace RentBridge.Application.Common.Interfaces.Repositories
         Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct);
         Task<bool> AnyAsync(Expression<Func<T, bool>> predicate, CancellationToken ct);
         Task<int> CountAsync(Expression<Func<T, bool>>? predicate, CancellationToken ct);
+        /// <summary>
+        /// Dashboard-aggregation primitive: counts rows grouped by a key
+        /// (e.g. status, role) in a single SQL GROUP BY. No entities are
+        /// materialized, so collection navigations are never loaded.
+        /// </summary>
+        Task<IReadOnlyList<GroupCount<TKey>>> CountByAsync<TKey>(
+            Expression<Func<T, bool>>? predicate,
+            Expression<Func<T, TKey>> keySelector,
+            CancellationToken ct);
         Task<PagedResult<T>> GetPagedAsync(
             Expression<Func<T, bool>>? predicate,
             int page,

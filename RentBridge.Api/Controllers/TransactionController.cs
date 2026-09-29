@@ -14,6 +14,11 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/transactions")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
 public sealed class TransactionController(IMediator mediator) : ControllerBase
 {
     /// <summary>Returns a page of the caller's transaction history.</summary>

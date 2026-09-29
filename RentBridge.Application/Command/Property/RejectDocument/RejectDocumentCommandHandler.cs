@@ -45,7 +45,7 @@ public class RejectDocumentCommandHandler(
             return Result.Fail(auth.Error!);
         }
 
-        var rejectResult = property.RejectDocument(request.DocumentId);
+        var rejectResult = property.RejectDocument(request.DocumentId, request.Reason);
         if (!rejectResult.IsSuccess)
         {
             logger.LogInformation("Document {documentId} on property {propertyId} cannot be rejected: {error}", request.DocumentId, request.PropertyId, rejectResult.Error);

@@ -10,6 +10,8 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersionNeutral]
 [Route("api/webhooks/smile")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
 public class SmileWebhookController(
     IMediator mediator,
     ISmileSignatureValidator signatureValidator,

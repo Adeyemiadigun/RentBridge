@@ -1,4 +1,5 @@
 ﻿using RentBridge.Domain.Common;
+using RentBridge.Domain.Entities;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
 
@@ -18,6 +19,8 @@ public class Listing : Entity<Guid>
     public Money? RealHouseFee { get; private set; }
     public Money? AgentFee { get; private set; }
     public ListingStatus Status { get; private set; }
+    private readonly List<ListingImage> _images = new();
+    public IReadOnlyCollection<ListingImage> Images => _images;
     public string? CoverImageKey { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? PublishedAt { get; private set; }
@@ -80,6 +83,23 @@ public class Listing : Entity<Guid>
     {
         if (Status != ListingStatus.Published) return Result.Fail("Only published listings can be unpublished");
         Status = ListingStatus.Unpublished;
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Replaces the listing's hosted photographs. The first image becomes
+    /// the cover shown on search cards.
+    /// </summary>
+    public Result SetImages(IEnumerable<string> imageUrls)
+    {
+        if (imageUrls is null) return Result.Fail("Image URLs cannot be null.");
+        var urls = imageUrls.Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+        _images.Clear();
+        for (var i = 0; i < urls.Count; i++)
+        {
+            _images.Add(new ListingImage(Id, urls[i], i));
+        }
+        CoverImageKey = urls.FirstOrDefault();
         return Result.Ok();
     }
 

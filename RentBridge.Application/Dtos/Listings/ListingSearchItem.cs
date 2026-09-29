@@ -10,6 +10,7 @@ public sealed record ListingSearchItem(
     string Currency,
     ListingStatus Status,
     string? CoverImageKey,
+    IReadOnlyList<string> ImageUrls,
     DateTimeOffset CreatedAt,
     DateTimeOffset? PublishedAt,
     Guid PropertyId,

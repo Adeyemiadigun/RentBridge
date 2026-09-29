@@ -7,7 +7,8 @@ namespace RentBridge.Infrastructure.Verification.Providers.Dojah;
 
 /// <summary>
 /// HMAC-SHA256 webhook signature checks per Dojah docs.
-/// Secret resolves from Dojah:SecretKey (Dojah:ApiKey alias).
+/// Uses Dojah:WebhookSecret when configured (dashboard webhook key),
+/// otherwise falls back to Dojah:SecretKey.
 /// </summary>
 public sealed class DojahSignatureValidator : IDojahSignatureValidator
 {
@@ -16,10 +17,14 @@ public sealed class DojahSignatureValidator : IDojahSignatureValidator
 
     public DojahSignatureValidator(IConfiguration configuration, IOptions<DojahOptions> options)
     {
-        var secret = !string.IsNullOrWhiteSpace(options.Value.ResolvedSecretKey)
-            ? options.Value.ResolvedSecretKey
-            : configuration["Dojah:SecretKey"] ?? configuration["Dojah:ApiKey"]
-                ?? throw new InvalidOperationException("Dojah:SecretKey is not configured.");
+        var secret = !string.IsNullOrWhiteSpace(options.Value.WebhookSecret)
+            ? options.Value.WebhookSecret
+            : !string.IsNullOrWhiteSpace(options.Value.ResolvedSecretKey)
+                ? options.Value.ResolvedSecretKey
+                : configuration["Dojah:WebhookSecret"]
+                    ?? configuration["Dojah:SecretKey"]
+                    ?? configuration["Dojah:ApiKey"]
+                    ?? throw new InvalidOperationException("Dojah:WebhookSecret is not configured.");
 
         _secretBytes = Encoding.UTF8.GetBytes(secret);
         _secretV2Hash = Convert.ToHexString(SHA256.HashData(_secretBytes)).ToLowerInvariant();

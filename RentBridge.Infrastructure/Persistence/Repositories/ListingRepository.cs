@@ -25,17 +25,26 @@ public class ListingRepository : IListingRepository
         ListingStatus? status,
         int page,
         int pageSize,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? ownerUserId = null)
     {
         var resolvedStatus = status ?? ListingStatus.Published;
 
         // Project an anonymous shape in SQL (EF Core cannot translate the
         // ListingSearchItem record constructor, which surfaced as a 500 on
         // GET /listings/search). The record is built in memory afterwards.
-        var query = _context.Set<Listing>().AsNoTracking()
-            .Where(listing => listing.Status == resolvedStatus
-                && (minPrice == null || listing.Price.Amount >= minPrice)
-                && (maxPrice == null || listing.Price.Amount <= maxPrice))
+        var baseQuery = _context.Set<Listing>().AsNoTracking()
+            .Include(listing => listing.Images);
+        var query = ownerUserId is not null
+            ? baseQuery.Where(listing => listing.OwnerUserId == ownerUserId.Value
+                && (status == null || listing.Status == status))
+            : baseQuery.Where(listing => listing.Status == resolvedStatus);
+        query = query
+            .Where(listing =>
+                (minPrice == null || listing.Price.Amount >= minPrice)
+                && (maxPrice == null || listing.Price.Amount <= maxPrice));
+
+        var joined = query
             .Join(
                 _context.Set<Property>().AsNoTracking()
                     .Where(property => (state == null || property.PropertyAddress.State == state)
@@ -46,9 +55,9 @@ public class ListingRepository : IListingRepository
                 (listing, property) => new { listing, property })
             .OrderByDescending(x => x.listing.PublishedAt);
 
-        var totalCount = await query.CountAsync(ct);
+        var totalCount = await joined.CountAsync(ct);
 
-        var rows = await query
+        var rows = await joined
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(ct);
@@ -62,6 +71,7 @@ public class ListingRepository : IListingRepository
                 x.listing.Price.Currency,
                 x.listing.Status,
                 x.listing.CoverImageKey,
+                x.listing.Images.OrderBy(img => img.Position).Select(img => img.Url).ToList(),
                 x.listing.CreatedAt,
                 x.listing.PublishedAt,
                 x.listing.PropertyId,
@@ -81,5 +91,59 @@ public class ListingRepository : IListingRepository
             .ToList();
 
         return new PagedResult<ListingSearchItem>(page, pageSize, totalCount, items);
+    }
+
+    public async Task<ListingDetailItem?> GetDetailAsync(Guid id, CancellationToken ct)
+    {
+        var query = _context.Set<Listing>().AsNoTracking()
+            .Include(listing => listing.Images)
+            .Where(listing => listing.Id == id && listing.Status == ListingStatus.Published)
+            .Join(
+                _context.Set<Property>().AsNoTracking(),
+                listing => listing.PropertyId,
+                property => property.Id,
+                (listing, property) => new { listing, property })
+            .Join(
+                _context.Set<User>().AsNoTracking(),
+                x => x.listing.OwnerUserId,
+                user => user.Id,
+                (x, user) => new { x.listing, x.property, user });
+
+        var row = await query.FirstOrDefaultAsync(ct);
+        if (row is null) return null;
+
+        var l = row.listing;
+        var p = row.property;
+        var u = row.user;
+        return new ListingDetailItem(
+            l.Id,
+            l.Title,
+            l.Description,
+            l.Price.Amount,
+            l.Price.Currency,
+            l.Status,
+            l.CoverImageKey,
+            l.Images.OrderBy(img => img.Position).Select(img => img.Url).ToList(),
+            l.CreatedAt,
+            l.PublishedAt,
+            l.PropertyId,
+            l.ListingType,
+            l.PaymentPlan,
+            l.CautionFee?.Amount,
+            l.RealHouseFee?.Amount,
+            l.AgentFee?.Amount,
+            p.PropertyAddress.Street,
+            p.PropertyAddress.City,
+            p.PropertyAddress.Area,
+            p.PropertyAddress.State,
+            p.PropertyType,
+            p.Bedrooms,
+            p.Bathrooms,
+            p.AvailableFrom,
+            p.Amenities,
+            u.Id,
+            $"{u.FirstName} {u.LastName}".Trim(),
+            u.Email.Value,
+            u.IdentityVerified);
     }
 }

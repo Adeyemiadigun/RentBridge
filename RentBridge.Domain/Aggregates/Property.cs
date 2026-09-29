@@ -11,6 +11,8 @@ public class Property : Entity<Guid>
     public Address PropertyAddress { get; private set; }
     private readonly List<OwnershipDocument> _documents = new();
     public IReadOnlyCollection<OwnershipDocument> Documents => _documents;
+    private readonly List<string> _images = new();
+    public IReadOnlyCollection<string> Images => _images;
 
     public string? PropertyType { get; private set; }
     public int Bedrooms { get; private set; }
@@ -22,6 +24,9 @@ public class Property : Entity<Guid>
 
     public Guid? VerificationLawyerId { get; private set; }
     public DateTimeOffset? VerifiedAt { get; private set; }
+    public string? VerifiedByUserId { get; private set; }
+    public string? VerifiedByName { get; private set; }
+    public string? VerifiedByRole { get; private set; }
 
     private Property() { }
 
@@ -35,7 +40,8 @@ public class Property : Entity<Guid>
         int bedrooms = 0,
         int bathrooms = 0,
         string? availableFrom = null,
-        IEnumerable<string>? amenities = null) : this()
+        IEnumerable<string>? amenities = null,
+        IEnumerable<string>? imageUrls = null) : this()
     {
         Id = Guid.NewGuid();
         OwnerUserId = ownerUserId;
@@ -46,10 +52,21 @@ public class Property : Entity<Guid>
         AvailableFrom = availableFrom;
         if (amenities is not null)
             Amenities.AddRange(amenities.Where(a => !string.IsNullOrWhiteSpace(a)));
+        if (imageUrls is not null)
+            _images.AddRange(imageUrls.Where(u => !string.IsNullOrWhiteSpace(u)));
     }
 
-public void AddDocument(string fileKey)
+    public void AddDocument(string fileKey)
         => _documents.Add(new OwnershipDocument(Id, fileKey));
+
+    public Result SetImages(IEnumerable<string> imageUrls)
+    {
+        if (imageUrls is null) return Result.Fail("Image URLs cannot be null.");
+        var urls = imageUrls.Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+        _images.Clear();
+        _images.AddRange(urls);
+        return Result.Ok();
+    }
 
     public Result AssignVerificationLawyer(Guid lawyerId)
     {
@@ -76,7 +93,7 @@ public void AddDocument(string fileKey)
 
     public static bool CanCreateBy(UserRole role) => CanCreateProperty.Contains(role);
 
-    public Result VerifyDocument(Guid docId)
+    public Result VerifyDocument(Guid docId, string verifierUserId, string verifierName, string verifierRole)
     {
         var doc = _documents.FirstOrDefault(d => d.Id == docId);
 
@@ -87,18 +104,18 @@ public void AddDocument(string fileKey)
             return Result.Fail("Document is already verified.");
         if (doc.Status == OwnershipDocStatus.Rejected)
             return Result.Fail("Document is rejected.");
-        return doc.Verify();            // flip just this doc to Verified
+        return doc.Verify(verifierUserId, verifierName, verifierRole);            // flip just this doc to Verified
     }
 
-    public Result RejectDocument(Guid docId)
+    public Result RejectDocument(Guid docId, string? reason)
     {
         var doc = _documents.FirstOrDefault(d => d.Id == docId);
 
         if (doc is null) return Result.Fail("Document not found");
-        return doc.Reject();
+        return doc.Reject(reason);
     }
 
-    public Result MarkOwnershipVerified()
+    public Result MarkOwnershipVerified(string verifierUserId, string verifierName, string verifierRole)
     {
         if (IsVerified) return Result.Ok();
         if (_documents.Any(d => d.Status == OwnershipDocStatus.Rejected))
@@ -107,10 +124,14 @@ public void AddDocument(string fileKey)
             return Result.Fail("Cannot verify property while a document is under review.");
         IsVerified = true;
         VerifiedAt = DateTimeOffset.UtcNow;
+        VerifiedByUserId = verifierUserId;
+        VerifiedByName = verifierName;
+        VerifiedByRole = verifierRole;
         Raise(new OwnershipVerified(Id));     // the ONE place this event is raised
         return Result.Ok();
     }
-}
+
+    }
 
 public record OwnershipVerified(Guid PropertyId) : IDomainEvent;
 public record VerificationLawyerAssigned(Guid PropertyId, Guid? PreviousLawyerId, Guid LawyerId) : IDomainEvent;

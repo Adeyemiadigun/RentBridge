@@ -28,7 +28,7 @@ namespace RentBridge.Application.Command.Listing
                 return Result<Guid>.Fail("Listing not found");
             }
 
-            if (listing.OwnerUserId != user.Id)
+            if (listing.OwnerUserId != user.Id && user.Role != RentBridge.Domain.Enums.UserRole.Admin)
             {
                 logger.LogInformation("User {userId} is not the owner of listing {listingId}", user.Id, request.ListingId);
                 return Result<Guid>.Fail("You can only close your own listing");

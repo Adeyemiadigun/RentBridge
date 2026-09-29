@@ -29,6 +29,9 @@ public sealed class AutoAssignLeaseLawyerOnInspectionConfirmedEventHandler(
             return;
         }
 
+        // Assigning a lawyer does not advance the lease: it stays in
+        // InspectionConfirmed so a reschedule can still be requested. Legal
+        // review is entered explicitly via BeginLegalReview.
         var result = lease.AssignLawyer(lawyer.Value);
         if (!result.IsSuccess)
         {

@@ -17,6 +17,11 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/payout-account")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
 public sealed class PayoutAccountController(IMediator mediator) : ControllerBase
 {
     /// <summary>Lists the banks available for payout.</summary>

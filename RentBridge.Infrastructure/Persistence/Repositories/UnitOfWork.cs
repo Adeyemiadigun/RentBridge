@@ -47,6 +47,16 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
             return await _context.SaveChangesAsync(cancellationToken);
         }
 
+        public void MarkAsAdded<T>(T entity) where T : class
+        {
+            _context.Entry(entity).State = EntityState.Added;
+        }
+
+        public void ClearChangeTracker()
+        {
+            _context.ChangeTracker.Clear();
+        }
+
         public async Task<bool> TryClaimEscrowPayoutAsync(
             Guid escrowPaymentId,
             string payoutReference,

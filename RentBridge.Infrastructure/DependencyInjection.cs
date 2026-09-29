@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
 using RentBridge.Application.Common.Interfaces.Verification;
@@ -43,7 +44,10 @@ public static class DependencyInjection
             configuration.GetSection(VerificationOptions.SectionName));
         services.Configure<DojahOptions>(
             configuration.GetSection(DojahOptions.SectionName));
-        services.AddHttpClient<DojahIdentityVerificationProvider>();
+        services.Configure<CloudinaryOptions>(
+            configuration.GetSection(CloudinaryOptions.SectionName));
+        services.AddHttpClient<IFileStorage, CloudinaryFileStorage>();
+        services.AddScoped<DojahIdentityVerificationProvider>();
         services.AddHttpClient<SmileIdentityVerificationProvider>();
         services.AddScoped<IIdentityVerificationProvider>(
             sp => sp.GetRequiredService<DojahIdentityVerificationProvider>());
@@ -54,7 +58,15 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IAgreementPdfRenderer, AgreementPdfRenderer>();
 
-        services.AddHttpClient<IEscrowProvider, PaystackEscrowProvider>();
+        services.Configure<PaymentOptions>(configuration.GetSection(PaymentOptions.SectionName));
+
+        services.AddHttpClient<IEscrowProvider, PaystackEscrowProvider>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<PaymentOptions>>().Value;
+            client.BaseAddress = new Uri(options.Paystack.BaseUrl.TrimEnd('/'));
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.Paystack.SecretKey);
+        });
 
         return services;
     }

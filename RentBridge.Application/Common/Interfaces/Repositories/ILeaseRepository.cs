@@ -12,4 +12,12 @@ public interface ILeaseRepository
     Task<IReadOnlyList<Lease>> GetWithStuckPayoutsAsync(
         DateTimeOffset cutoff,
         CancellationToken ct);
+
+    /// <summary>
+    /// Gets a lease by ID with InspectionRequests collection loaded for proper
+    /// concurrency tracking of owned entities.
+    /// </summary>
+    Task<Lease?> GetWithInspectionRequestsAsync(
+        Guid leaseId,
+        CancellationToken ct);
 }

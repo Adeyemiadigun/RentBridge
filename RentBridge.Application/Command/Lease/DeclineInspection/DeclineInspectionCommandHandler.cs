@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
@@ -14,6 +15,8 @@ public class DeclineInspectionCommandHandler(
     ILogger<DeclineInspectionCommandHandler> logger)
     : IRequestHandler<DeclineInspectionCommand, Result>
 {
+    private const int MaxRetryAttempts = 3;
+
     public async Task<Result> Handle(DeclineInspectionCommand request, CancellationToken cancellationToken)
     {
         var res = await currentUser.GetCurrentUser(true, cancellationToken);
@@ -23,27 +26,42 @@ public class DeclineInspectionCommandHandler(
         }
         var user = res.Value;
 
-        var lease = await unitOfWork.Repository<LeaseAggregate>().GetByIdAsync(request.LeaseId, cancellationToken);
-        if (lease is null)
+        for (int attempt = 0; attempt < 3; attempt++)
         {
-            logger.LogInformation("Lease {leaseId} not found", request.LeaseId);
-            return Result.Fail("Lease not found");
+            try
+            {
+                var lease = await unitOfWork.Leases.GetWithInspectionRequestsAsync(request.LeaseId, cancellationToken);
+                if (lease is null)
+                {
+                    return Result.Fail("Lease not found");
+                }
+
+                if (lease.LandlordUserId != user.Id && user.Role != UserRole.Admin)
+                {
+                    return Result.Fail("Only the landlord or an admin can decline an inspection");
+                }
+
+                var result = lease.DeclinePendingInspection();
+                if (!result.IsSuccess)
+                {
+                    return Result.Fail(result.Error!);
+                }
+
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+                return Result.Ok();
+            }
+            catch (DbUpdateConcurrencyException ex) when (attempt < 2)
+            {
+                unitOfWork.ClearChangeTracker();
+                await Task.Delay(TimeSpan.FromMilliseconds(100 * (attempt + 1)), cancellationToken);
+                continue;
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                return Result.Fail("The lease was modified by another process. Please try again.");
+            }
         }
 
-        if (lease.LandlordUserId != user.Id && user.Role != UserRole.Admin)
-        {
-            logger.LogInformation("User {userId} is not authorized to decline inspection for lease {leaseId}", user.Id, request.LeaseId);
-            return Result.Fail("Only the landlord or an admin can decline an inspection");
-        }
-
-        var result = lease.DeclinePendingInspection();
-        if (!result.IsSuccess)
-        {
-            logger.LogInformation("Lease {leaseId} cannot decline inspection: {error}", request.LeaseId, result.Error);
-            return Result.Fail(result.Error!);
-        }
-
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return Result.Ok();
+        return Result.Fail("The lease was modified by another process. Please try again.");
     }
 }

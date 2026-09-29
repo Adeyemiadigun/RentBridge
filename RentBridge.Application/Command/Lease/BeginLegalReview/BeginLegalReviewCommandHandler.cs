@@ -47,6 +47,8 @@ public sealed class BeginLegalReviewCommandHandler(
             return Result.Fail(composed.Error!);
         }
 
+        // Assign a lawyer if none is on the lease yet (lazy pick). AssignLawyer
+        // no longer advances the status, so the transition below always runs.
         if (lease.AssignedLawyerId is null)
         {
             var picked = await lawyerService.PickNextVerifiedLawyerAsync(cancellationToken);
@@ -64,9 +66,6 @@ public sealed class BeginLegalReviewCommandHandler(
                     request.LeaseId, picked.Value, assign.Error);
                 return Result.Fail(assign.Error!);
             }
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Ok();
         }
 
         var begin = lease.BeginLegalReview();

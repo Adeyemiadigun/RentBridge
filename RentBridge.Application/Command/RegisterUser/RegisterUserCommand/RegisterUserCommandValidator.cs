@@ -54,8 +54,11 @@ namespace RentBridge.Application.Command.RegisterUser
                 .NotEmpty()
                 .WithMessage("Role is required.")
                 .Must(role => Enum.TryParse<UserRole>(role, true, out var parsedRole)
-                              && Enum.IsDefined(parsedRole))
-                .WithMessage("Role must be a valid user role.");
+                               && Enum.IsDefined(parsedRole))
+                .WithMessage("Role must be a valid user role.")
+                .Must(role => !Enum.TryParse<UserRole>(role, true, out var parsedRole)
+                               || parsedRole != UserRole.Admin)
+                .WithMessage("Admin accounts cannot be created via public registration.");
 
             RuleFor(x => x.BarNumber)
                 .NotEmpty()

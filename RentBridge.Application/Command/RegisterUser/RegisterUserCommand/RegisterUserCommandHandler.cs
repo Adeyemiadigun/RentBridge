@@ -35,6 +35,14 @@ namespace RentBridge.Application.Command.RegisterUser
                     return Result<Guid>.Fail("Invalid role");
                 }
 
+                // Defense in depth (the validator also rejects this): admin
+                // accounts are seeded and created by the default admin only.
+                if (userRole == UserRole.Admin)
+                {
+                    logger.LogInformation("Blocked public admin registration for {Email}", request.Email);
+                    return Result<Guid>.Fail("Admin accounts cannot be created via public registration.");
+                }
+
                 var resEmail = Email.Create(request.Email);
                 if (resEmail.IsSuccess is false)
                 {

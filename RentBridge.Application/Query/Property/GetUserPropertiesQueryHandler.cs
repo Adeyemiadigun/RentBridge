@@ -54,7 +54,8 @@ public class GetUserPropertiesQueryHandler(
                 p.Bathrooms,
                 p.AvailableFrom,
                 p.Amenities,
-                p.Documents.Select(d => new OwnershipDocumentItem(d.Id, d.Status, d.FileKey)).ToList()))
+                p.Documents.Select(d => new OwnershipDocumentItem(d.Id, d.Status, d.FileKey)).ToList(),
+                p.Images.ToList()))
             .ToList();
 
         return Result<PagedResult<PropertyItem>>.Ok(

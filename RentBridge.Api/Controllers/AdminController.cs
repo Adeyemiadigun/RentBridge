@@ -18,6 +18,11 @@ namespace RentBridge.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/admin")]
+[Produces("application/json")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
 public sealed class AdminController(IMediator mediator) : ControllerBase
 {
     /// <summary>
@@ -174,5 +179,21 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         }
 
         return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Creates a new admin account. Only the seeded default admin
+    /// (Admin:Email) may call this; public registration never creates admins.
+    /// </summary>
+    [HttpPost("admins")]
+    public async Task<IActionResult> CreateAdmin([FromBody] CreateAdminCommand command, CancellationToken ct)
+    {
+        var result = await mediator.Send(command, ct);
+        if (result.IsSuccess is false)
+        {
+            return BadRequest(new { error = result.Error });
+        }
+
+        return Ok(new { userId = result.Value });
     }
 }

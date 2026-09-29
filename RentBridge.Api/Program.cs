@@ -1,4 +1,5 @@
-﻿using Asp.Versioning;
+﻿using System.Text.Json.Serialization;
+using Asp.Versioning;
 using Hangfire;
 using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
@@ -8,9 +9,12 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using RentBridge.Api.Hangfire;
 using RentBridge.Api.Middleware;
+using RentBridge.Api.Swagger;
 using RentBridge.Api.Versioning;
 using RentBridge.Application;
 using RentBridge.Application.Common.Interfaces;
+using RentBridge.Domain.Aggregates;
+using RentBridge.Domain.Enums;
 using RentBridge.Infrastructure;
 using RentBridge.Infrastructure.Persistence;
 using RentBridge.Infrastructure.Services;
@@ -43,7 +47,11 @@ if (!string.IsNullOrWhiteSpace(databaseUrl) &&
     }
 }
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 builder.Services.AddOpenApi();
 
 // URL-segment versioning: /api/v1/.... Unversioned requests are assumed v1,
@@ -121,13 +129,9 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Paste your access token. The Authorization header will be 'Bearer <token>'."
     });
 
-    c.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecuritySchemeReference("Bearer", null, null),
-            new List<string>()
-        }
-    });
+    // Per-operation lock icons: only endpoints that require auth get the
+    // Bearer requirement (see BearerSecuritySchemeOperationFilter).
+    c.OperationFilter<BearerSecuritySchemeOperationFilter>();
 });
 
 var app = builder.Build();
@@ -137,6 +141,51 @@ using (var migrateScope = app.Services.CreateScope())
 {
     var db = migrateScope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+}
+
+// Bootstrap the default admin (Admin:Email/Phone/Password). Skips when
+// unconfigured or when an Admin already exists — never blocks startup.
+// Only this default admin can create further admin accounts.
+using (var seedScope = app.Services.CreateScope())
+{
+    var sp = seedScope.ServiceProvider;
+    var db = sp.GetRequiredService<AppDbContext>();
+    var passwords = sp.GetRequiredService<IPasswordService>();
+    var adminEmail = builder.Configuration["Admin:Email"];
+    var adminPhone = builder.Configuration["Admin:Phone"];
+    var adminPassword = builder.Configuration["Admin:Password"];
+    var adminFirst = builder.Configuration["Admin:FirstName"] ?? "System";
+    var adminLast = builder.Configuration["Admin:LastName"] ?? "Admin";
+
+    if (string.IsNullOrWhiteSpace(adminEmail)
+        || string.IsNullOrWhiteSpace(adminPhone)
+        || string.IsNullOrWhiteSpace(adminPassword))
+    {
+        app.Logger.LogWarning("Admin bootstrap skipped: Admin:Email/Phone/Password is not fully configured.");
+    }
+    else if (await db.Set<User>().AnyAsync(u => u.Role == UserRole.Admin))
+    {
+        app.Logger.LogInformation("Admin bootstrap skipped: an Admin user already exists.");
+    }
+    else
+    {
+        var email = RentBridge.Domain.ValueObjects.Email.Create(adminEmail);
+        var phone = RentBridge.Domain.ValueObjects.PhoneNumber.Create(adminPhone);
+        if (email.IsSuccess is false || phone.IsSuccess is false)
+        {
+            app.Logger.LogWarning("Admin bootstrap skipped: {Error}",
+                email.IsSuccess is false ? email.Error : phone.Error);
+        }
+        else
+        {
+            var (hash, salt) = passwords.Generate(adminPassword);
+            var admin = new User(email.Value, phone.Value, adminFirst, adminLast, UserRole.Admin);
+            admin.SetPassword(hash, salt);
+            db.Set<User>().Add(admin);
+            await db.SaveChangesAsync();
+            app.Logger.LogInformation("Admin bootstrap: default admin {Email} created.", adminEmail);
+        }
+    }
 }
 
 if (app.Environment.IsDevelopment())

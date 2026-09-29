@@ -9,18 +9,18 @@ using RentBridge.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace RentBridge.Infrastructure.Persistence.Migrations
+namespace RentBridge.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260924211227_PropertyListingDetails")]
-    partial class PropertyListingDetails
+    [Migration("20260927160247_addedTable")]
+    partial class addedTable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -275,6 +275,20 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset?>("VerifiedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VerifiedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("verified_by_name");
+
+                    b.Property<string>("VerifiedByRole")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("verified_by_role");
+
+                    b.Property<string>("VerifiedByUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("verified_by_user_id");
 
                     b.HasKey("Id");
 
@@ -973,9 +987,39 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("ListingId");
                         });
 
+                    b.OwnsMany("RentBridge.Domain.Entities.ListingImage", "Images", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("ListingId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int>("Position")
+                                .HasColumnType("integer")
+                                .HasColumnName("position");
+
+                            b1.Property<string>("Url")
+                                .IsRequired()
+                                .HasColumnType("text")
+                                .HasColumnName("url");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("ListingId");
+
+                            b1.ToTable("listing_images", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("ListingId");
+                        });
+
                     b.Navigation("AgentFee");
 
                     b.Navigation("CautionFee");
+
+                    b.Navigation("Images");
 
                     b.Navigation("Price")
                         .IsRequired();
@@ -998,6 +1042,14 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
                             b1.Property<Guid>("PropertyId")
                                 .HasColumnType("uuid");
 
+                            b1.Property<string>("RejectionReason")
+                                .HasColumnType("text")
+                                .HasColumnName("rejection_reason");
+
+                            b1.Property<DateTimeOffset?>("ReviewedAt")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("reviewed_at");
+
                             b1.Property<string>("Status")
                                 .IsRequired()
                                 .HasMaxLength(30)
@@ -1005,6 +1057,20 @@ namespace RentBridge.Infrastructure.Persistence.Migrations
 
                             b1.Property<DateTimeOffset>("UploadedAt")
                                 .HasColumnType("timestamp with time zone");
+
+                            b1.Property<string>("VerifiedByName")
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("verified_by_name");
+
+                            b1.Property<string>("VerifiedByRole")
+                                .HasMaxLength(30)
+                                .HasColumnType("character varying(30)")
+                                .HasColumnName("verified_by_role");
+
+                            b1.Property<string>("VerifiedByUserId")
+                                .HasColumnType("text")
+                                .HasColumnName("verified_by_user_id");
 
                             b1.HasKey("Id");
 

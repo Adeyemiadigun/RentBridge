@@ -25,4 +25,22 @@ public class LeaseRepository : ILeaseRepository
                 && p.PayoutStartedAt < cutoff))
             .ToListAsync(ct);
     }
+
+    public async Task<Lease?> GetWithInspectionRequestsAsync(
+        Guid leaseId,
+        CancellationToken ct)
+    {
+        // Step 1: Load lease by PK (FindAsync properly loads all shadow properties including Version/xmin)
+        var entity = await _context.Set<Lease>().FindAsync([leaseId], ct);
+        if (entity is null)
+            return null;
+
+        // Step 2: Explicitly load InspectionRequests collection
+        await _context.Entry(entity).Collection(l => l.InspectionRequests).LoadAsync(ct);
+        
+        // Verify Version/xmin was loaded
+        var versionVal = _context.Entry(entity).Property("Version").CurrentValue;
+        
+        return entity;
+    }
 }

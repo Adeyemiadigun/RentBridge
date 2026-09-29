@@ -45,7 +45,11 @@ public class VerifyDocumentCommandHandler(
             return Result.Fail(auth.Error!);
         }
 
-        var verifyResult = property.VerifyDocument(request.DocumentId);
+        var verifyResult = property.VerifyDocument(
+            request.DocumentId,
+            user.Id.ToString(),
+            $"{user.FirstName} {user.LastName}".Trim(),
+            user.Role.ToString());
         if (!verifyResult.IsSuccess)
         {
             logger.LogInformation("Document {documentId} on property {propertyId} cannot be verified: {error}", request.DocumentId, request.PropertyId, verifyResult.Error);

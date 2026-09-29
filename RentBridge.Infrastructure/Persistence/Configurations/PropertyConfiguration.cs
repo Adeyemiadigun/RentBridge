@@ -36,6 +36,17 @@ public class PropertyConfiguration : IEntityTypeConfiguration<Property>
 
         b.HasIndex(p => p.IsVerified);
 
+        b.Property(p => p.VerifiedByUserId)
+         .HasColumnName("verified_by_user_id");
+
+        b.Property(p => p.VerifiedByName)
+         .HasColumnName("verified_by_name")
+         .HasMaxLength(200);
+
+        b.Property(p => p.VerifiedByRole)
+         .HasColumnName("verified_by_role")
+         .HasMaxLength(30);
+
         b.OwnsOne(p => p.PropertyAddress, a =>
         {
             a.Property(x => x.Street).HasColumnName("street");
@@ -53,6 +64,23 @@ public class PropertyConfiguration : IEntityTypeConfiguration<Property>
             d.Property(x => x.Status)
              .HasConversion<string>()
              .HasMaxLength(30);
+
+            d.Property(x => x.VerifiedByUserId)
+             .HasColumnName("verified_by_user_id");
+
+            d.Property(x => x.VerifiedByName)
+             .HasColumnName("verified_by_name")
+             .HasMaxLength(200);
+
+            d.Property(x => x.VerifiedByRole)
+             .HasColumnName("verified_by_role")
+             .HasMaxLength(30);
+
+            d.Property(x => x.RejectionReason)
+             .HasColumnName("rejection_reason");
+
+            d.Property(x => x.ReviewedAt)
+             .HasColumnName("reviewed_at");
         });
     }
 }

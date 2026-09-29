@@ -1,4 +1,4 @@
-﻿using RentBridge.Domain.Common;
+using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 
 namespace RentBridge.Domain.Entities;
@@ -36,7 +36,9 @@ public class InspectionRequest
     public Result Confirm(DateTimeOffset? scheduledDate = null, string? notes = null)
     {
         if (Status != InspectionStatus.Pending)
+        {
             return Result.Fail("Only pending inspections can be confirmed");
+        }
         ScheduledDate = scheduledDate;
         Notes = notes;
         Status = InspectionStatus.Confirmed;
@@ -46,7 +48,9 @@ public class InspectionRequest
     public Result Decline()
     {
         if (Status != InspectionStatus.Pending)
+        {
             return Result.Fail("Only pending inspections can be declined");
+        }
         Status = InspectionStatus.Declined;
         return Result.Ok();
     }
@@ -54,15 +58,31 @@ public class InspectionRequest
     public Result Cancel()
     {
         if (Status != InspectionStatus.Pending)
+        {
             return Result.Fail("Only pending inspections can be cancelled");
+        }
         Status = InspectionStatus.Cancelled;
+        return Result.Ok();
+    }
+
+    public Result UpdateDetails(DateTimeOffset preferredDate, string? note = null)
+    {
+        if (Status != InspectionStatus.Pending)
+        {
+            return Result.Fail("Only pending inspections can be updated");
+        }
+        PreferredDate = preferredDate;
+        if (!string.IsNullOrWhiteSpace(note))
+            Note = note;
         return Result.Ok();
     }
 
     public Result ProposeReschedule(DateTimeOffset newDate, string? note = null)
     {
         if (Status != InspectionStatus.Confirmed)
+        {
             return Result.Fail("Only a confirmed inspection can be rescheduled");
+        }
         ProposedDate = newDate;
         RescheduleNote = note;
         Status = InspectionStatus.ReschedulePending;
@@ -72,7 +92,9 @@ public class InspectionRequest
     public Result AcceptReschedule()
     {
         if (Status != InspectionStatus.ReschedulePending)
+        {
             return Result.Fail("Only a reschedule request can be accepted");
+        }
         ScheduledDate = ProposedDate;
         Notes = RescheduleNote ?? Notes;
         ProposedDate = null;
@@ -84,7 +106,9 @@ public class InspectionRequest
     public Result RejectReschedule()
     {
         if (Status != InspectionStatus.ReschedulePending)
+        {
             return Result.Fail("Only a reschedule request can be rejected");
+        }
         ProposedDate = null;
         RescheduleNote = null;
         Status = InspectionStatus.Confirmed;

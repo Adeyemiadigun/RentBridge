@@ -19,4 +19,5 @@ public sealed record PropertyItem(
     int Bathrooms,
     string? AvailableFrom,
     IReadOnlyList<string> Amenities,
-    IReadOnlyList<OwnershipDocumentItem> Documents);
+    IReadOnlyList<OwnershipDocumentItem> Documents,
+    IReadOnlyList<string> Images);
