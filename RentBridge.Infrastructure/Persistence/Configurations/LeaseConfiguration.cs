@@ -125,6 +125,20 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
 
             r.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
 
+            // The aggregate assumes at most one *live* request per lease: a
+            // Pending, Confirmed or ReschedulePending row is the one the
+            // lifecycle acts on, and the lookups in Lease pick exactly one.
+            // Without this the database would happily hold two and the domain
+            // would have to cope. Filtered (not a plain unique index) because a
+            // lease legitimately accumulates many terminal requests over its
+            // life — Declined, Cancelled and Completed may all repeat.
+            // LeaseId is a shadow property (configured via HasForeignKey above),
+            // so the index is declared by name rather than by lambda.
+            r.HasIndex("LeaseId")
+                .IsUnique()
+                .HasFilter("\"Status\" IN ('Pending', 'Confirmed', 'ReschedulePending')")
+                .HasDatabaseName("IX_inspection_requests_LeaseId_live");
+
             // Completion fields — populated only by InspectionRequest.Complete.
             r.Property(x => x.ActualDate).HasColumnName("actual_date");
             r.Property(x => x.Notes).HasColumnName("notes");
