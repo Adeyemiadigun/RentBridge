@@ -34,7 +34,7 @@ public sealed class GetOwnerDashboardQueryHandler(
         if (user.Role is not (UserRole.Landlord or UserRole.Agent or UserRole.Caretaker))
         {
             logger.LogInformation("User {UserId} with role {Role} attempted to view the owner dashboard", user.Id, user.Role);
-            return Result<OwnerDashboardResponse>.Fail("Only listing owners can view this dashboard.");
+            return Result<OwnerDashboardResponse>.Forbid("Only listing owners can view this dashboard.");
         }
 
         // Single GROUP BY per entity — no entity (and no owned-collection)

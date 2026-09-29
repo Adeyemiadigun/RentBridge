@@ -48,7 +48,7 @@ public class CreateLeaseCommandHandler(
                 if (listing.OwnerUserId == user.Id)
                 {
                     logger.LogInformation("User {userId} attempted to rent their own listing {listingId}", user.Id, request.ListingId);
-                    return Result<Guid>.Fail("You cannot rent your own listing");
+                    return Result<Guid>.Forbid("You cannot rent your own listing");
                 }
 
                 // Check if lease already exists for this listing and user

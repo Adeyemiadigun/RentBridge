@@ -29,7 +29,7 @@ public sealed class CertifyAgreementCommandHandler(
         if (user.Role is not (UserRole.Lawyer or UserRole.Admin))
         {
             logger.LogInformation("User {UserId} is not authorized to certify agreements", user.Id);
-            return Result.Fail("Only a lawyer or admin can certify an agreement.");
+            return Result.Forbid("Only a lawyer or admin can certify an agreement.");
         }
 
         var lease = await unitOfWork.Repository<LeaseAggregate>()
@@ -58,7 +58,7 @@ public sealed class CertifyAgreementCommandHandler(
         if (user.Id != lease.AssignedLawyerId)
         {
             logger.LogInformation("User {UserId} is not the assigned lawyer for lease {LeaseId}", user.Id, request.LeaseId);
-            return Result.Fail("Only the assigned lawyer can certify this agreement.");
+            return Result.Forbid("Only the assigned lawyer can certify this agreement.");
         }
 
         var certify = lease.Certify(user.Id);

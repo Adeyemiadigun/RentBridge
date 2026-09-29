@@ -28,7 +28,7 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { userId = result.Value });
@@ -66,7 +66,7 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(request, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -84,7 +84,7 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetMyProfileQuery(), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);

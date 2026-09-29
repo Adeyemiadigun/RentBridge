@@ -26,7 +26,7 @@ public sealed class GetFeeSettingsQueryHandler(
         if (actor.Role != UserRole.Admin)
         {
             logger.LogInformation("User {UserId} attempted to read fee settings without admin role", actor.Id);
-            return Result<FeeSettingsResponse>.Fail("Only an admin can view fee settings.");
+            return Result<FeeSettingsResponse>.Forbid("Only an admin can view fee settings.");
         }
 
         var settingsRes = await settingsService.GetOrCreateAsync(cancellationToken);

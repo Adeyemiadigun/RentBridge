@@ -26,7 +26,7 @@ public class AssignVerificationLawyerCommandHandler(
         if (user.Role != UserRole.Admin)
         {
             logger.LogInformation("User {userId} is not authorized to assign a verification lawyer", user.Id);
-            return Result.Fail("Only an admin can assign a verification lawyer.");
+            return Result.Forbid("Only an admin can assign a verification lawyer.");
         }
 
         var property = await unitOfWork.Repository<PropertyAggregate>().FirstOrDefault(p => p.Id == request.PropertyId, cancellationToken);

@@ -27,7 +27,7 @@ public sealed class SuspendLawyerCommandHandler(
         if (actor.Role != UserRole.Admin)
         {
             logger.LogInformation("User {UserId} attempted to suspend lawyers without admin role", actor.Id);
-            return Result<Guid>.Fail("Only an admin can suspend lawyers.");
+            return Result<Guid>.Forbid("Only an admin can suspend lawyers.");
         }
 
         var lawyer = await unitOfWork.Repository<UserAggregate>()
@@ -40,7 +40,7 @@ public sealed class SuspendLawyerCommandHandler(
 
         if (lawyer.Role != UserRole.Lawyer)
         {
-            return Result<Guid>.Fail("Only lawyer accounts can be suspended.");
+            return Result<Guid>.Forbid("Only lawyer accounts can be suspended.");
         }
 
         if (lawyer.LawyerProfile is null)

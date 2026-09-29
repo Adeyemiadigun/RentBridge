@@ -32,7 +32,7 @@ public sealed class UploadController(IFileStorage storage) : ControllerBase
         var result = await storage.UploadAsync(stream, file.FileName, file.ContentType, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { url = result.Value });

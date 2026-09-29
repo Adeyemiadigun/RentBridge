@@ -29,7 +29,7 @@ public sealed class GetOwnerTransactionMetricsQueryHandler(
         if (user.Role is not (UserRole.Landlord or UserRole.Agent or UserRole.Caretaker))
         {
             logger.LogInformation("User {UserId} with role {Role} attempted to view owner transaction metrics", user.Id, user.Role);
-            return Result<TransactionMetricsResponse>.Fail("Only listing owners can view these metrics.");
+            return Result<TransactionMetricsResponse>.Forbid("Only listing owners can view these metrics.");
         }
 
         var points = await unitOfWork.Ledger.GetTransactionMetricsAsync(

@@ -30,7 +30,7 @@ public sealed class DashboardController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetOwnerDashboardQuery(), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -51,7 +51,7 @@ public sealed class DashboardController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetOwnerTransactionMetricsQuery(from, to, granularity), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);

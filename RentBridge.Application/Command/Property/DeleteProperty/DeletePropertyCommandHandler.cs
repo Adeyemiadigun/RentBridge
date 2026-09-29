@@ -35,7 +35,7 @@ public class DeletePropertyCommandHandler(
         if (property.OwnerUserId != user.Id && user.Role != UserRole.Admin)
         {
             logger.LogInformation("User {UserId} attempted to delete property {PropertyId} they don't own", user.Id, request.PropertyId);
-            return Result.Fail("You can only delete your own properties.");
+            return Result.Forbid("You can only delete your own properties.");
         }
 
         // Delete images from Cloudinary

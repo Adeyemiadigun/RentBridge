@@ -27,7 +27,7 @@ public class SubmitPropertyForReviewCommandHandler(
         if (user.Role is not (UserRole.Landlord or UserRole.Caretaker or UserRole.Agent))
         {
             logger.LogInformation("User {userId} is not authorized to submit property for review", user.Id);
-            return Result.Fail("Only property owners can submit for review.");
+            return Result.Forbid("Only property owners can submit for review.");
         }
 
         // User must be identity verified
@@ -47,7 +47,7 @@ public class SubmitPropertyForReviewCommandHandler(
         if (property.OwnerUserId != user.Id)
         {
             logger.LogInformation("User {userId} attempted to submit property {propertyId} they don't own", user.Id, request.PropertyId);
-            return Result.Fail("You can only submit your own properties for review.");
+            return Result.Forbid("You can only submit your own properties for review.");
         }
 
         // Property must not already be verified

@@ -1,4 +1,4 @@
-﻿using RentBridge.Domain.Common;
+using RentBridge.Domain.Common;
 using RentBridge.Domain.Entities;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
@@ -7,6 +7,13 @@ namespace RentBridge.Domain.Aggregates;
 
 public class Lease : Entity<Guid>
 {
+    // Invariant: at most one inspection request per lease is in a live status
+    // (Pending, Confirmed, ReschedulePending) at a time. Lookups below use
+    // FirstOrDefault rather than SingleOrDefault on purpose — if bad data ever
+    // violates that invariant, SingleOrDefault throws InvalidOperationException
+    // and turns a domain guard into an unhandled 500. FirstOrDefault degrades to
+    // the normal "no such request" validation failure instead.
+
     public Guid ListingId { get; private set; }
     public Guid TenantUserId { get; private set; }
     public Guid LandlordUserId { get; private set; }
@@ -102,7 +109,7 @@ public class Lease : Entity<Guid>
             return Result.Fail("No pending inspection to confirm.");
         }
 
-        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        var pending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Pending);
         if (pending is null)
         {
             return Result.Fail("No pending inspection request to confirm.");
@@ -138,7 +145,7 @@ public class Lease : Entity<Guid>
             return Result.Fail("The inspection must be confirmed before it can be completed.");
         }
 
-        var confirmed = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Confirmed);
+        var confirmed = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Confirmed);
         if (confirmed is null)
         {
             return Result.Fail("No confirmed inspection to complete.");
@@ -162,7 +169,7 @@ public class Lease : Entity<Guid>
             return Result.Fail("No pending inspection flow to decline.");
         }
 
-        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        var pending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Pending);
         if (pending is null)
         {
             return Result.Fail("No pending inspection request to decline.");
@@ -186,7 +193,7 @@ public class Lease : Entity<Guid>
 
         if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection flow to cancel.");
 
-        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        var pending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Pending);
         if (pending is null) return Result.Fail("No pending inspection request to cancel.");
 
         var result = pending.Cancel();
@@ -204,7 +211,7 @@ public class Lease : Entity<Guid>
 
         if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("Inspection must be confirmed before rescheduling.");
 
-        var confirmed = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Confirmed);
+        var confirmed = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Confirmed);
         if (confirmed is null) return Result.Fail("No confirmed inspection to reschedule.");
 
         var result = confirmed.ProposeReschedule(newDate, note);
@@ -218,7 +225,7 @@ public class Lease : Entity<Guid>
     {
         if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("No confirmed inspection to reschedule.");
 
-        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.ReschedulePending);
+        var pending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.ReschedulePending);
         if (pending is null) return Result.Fail("No pending reschedule request.");
 
         var result = pending.AcceptReschedule();
@@ -232,7 +239,7 @@ public class Lease : Entity<Guid>
     {
         if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("No confirmed inspection to reschedule.");
 
-        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.ReschedulePending);
+        var pending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.ReschedulePending);
         if (pending is null) return Result.Fail("No pending reschedule request.");
 
         var result = pending.RejectReschedule();

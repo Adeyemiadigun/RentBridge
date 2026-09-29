@@ -30,7 +30,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { leaseId = result.Value });
@@ -47,7 +47,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetCallerLeasesQuery(page, pageSize), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -64,7 +64,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -79,7 +79,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new BeginInspectionFlowCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -100,7 +100,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new
@@ -125,7 +125,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new
@@ -146,7 +146,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new DeclineInspectionCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -162,7 +162,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new CancelInspectionCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -179,7 +179,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -195,7 +195,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new ConfirmRescheduleCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -211,7 +211,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new RejectRescheduleCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -228,7 +228,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new BeginLegalReviewCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -244,7 +244,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new CertifyAgreementCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -261,7 +261,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -277,7 +277,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetLeaseAgreementQuery(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -295,7 +295,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetLeaseAgreementPdfQuery(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         var pdf = result.Value;
@@ -312,7 +312,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new FundEscrowCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -329,7 +329,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new ReleaseEscrowCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { released = true });
@@ -350,7 +350,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetLeaseTransactionsQuery(leaseId, page, pageSize), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -367,7 +367,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetLeaseQuery(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);

@@ -31,7 +31,7 @@ public sealed class PayoutAccountController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetBanksQuery(), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -48,7 +48,7 @@ public sealed class PayoutAccountController(IMediator mediator) : ControllerBase
             new ResolvePayoutAccountCommand(request.BankCode, request.AccountNumber), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { accountName = result.Value });
@@ -65,7 +65,7 @@ public sealed class PayoutAccountController(IMediator mediator) : ControllerBase
             new SetPayoutAccountCommand(request.BankCode, request.BankName, request.AccountNumber), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -78,7 +78,7 @@ public sealed class PayoutAccountController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetPayoutAccountQuery(), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);

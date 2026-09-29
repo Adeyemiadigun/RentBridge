@@ -29,7 +29,7 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { listingId = result.Value });
@@ -49,7 +49,7 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new PublishListingCommand(listingId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { listingId = result.Value });
@@ -69,7 +69,7 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
             new EditListingCommand(listingId, request.Title, request.Description, request.PriceAmount), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { listingId = result.Value });
@@ -87,7 +87,7 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new UnpublishListingCommand(listingId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { listingId = result.Value });
@@ -106,7 +106,7 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new CloseListingCommand(listingId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { listingId = result.Value });
@@ -122,7 +122,7 @@ public sealed class ListingController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(query, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);

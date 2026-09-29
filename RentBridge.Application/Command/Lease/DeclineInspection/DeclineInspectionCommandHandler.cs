@@ -38,7 +38,7 @@ public class DeclineInspectionCommandHandler(
 
                 if (lease.LandlordUserId != user.Id && user.Role != UserRole.Admin)
                 {
-                    return Result.Fail("Only the landlord or an admin can decline an inspection");
+                    return Result.Forbid("Only the landlord or an admin can decline an inspection");
                 }
 
                 var result = lease.DeclinePendingInspection();

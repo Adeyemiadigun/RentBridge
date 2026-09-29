@@ -30,7 +30,7 @@ public sealed class GetLawyersQueryHandler(
         if (actor.Role != UserRole.Admin)
         {
             logger.LogInformation("User {UserId} attempted to list lawyers without admin role", actor.Id);
-            return Result<PagedResult<LawyerPanelItem>>.Fail("Only an admin can view lawyers.");
+            return Result<PagedResult<LawyerPanelItem>>.Forbid("Only an admin can view lawyers.");
         }
 
         var page = await unitOfWork.Repository<UserAggregate>().GetPagedAsync(

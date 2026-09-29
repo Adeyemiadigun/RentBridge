@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
@@ -27,7 +27,7 @@ namespace RentBridge.Application.Command.Listing
             if(property.OwnerUserId != user.Id)
             {
                 logger.LogInformation("User {userId} is not the owner of property {propertyId}", user.Id, request.PropertyId);
-                return Result<Guid>.Fail("You can only list your own property");
+                return Result<Guid>.Forbid("You can only list your own property");
             }
             // Draft listing is allowed before ownership verification; the
             // PublishListingCommand stays gated on property verification, so

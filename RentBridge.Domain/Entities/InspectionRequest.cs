@@ -30,6 +30,13 @@ public class InspectionRequest
     public string? Notes { get; private set; }
 
     public DateTimeOffset? ProposedDate { get; private set; }
+    /// <summary>
+    /// The tenant's reason for requesting a reschedule. Unlike
+    /// <see cref="ProposedDate"/> this is deliberately NOT cleared when the
+    /// request is accepted or rejected — it is the only record of what the
+    /// tenant asked for, and it belongs to them rather than to the landlord's
+    /// <see cref="Notes"/>. Overwritten if the tenant proposes again.
+    /// </summary>
     public string? RescheduleNote { get; private set; }
 
     /// <summary>When the inspection actually took place. Null until completed.</summary>
@@ -126,6 +133,13 @@ public class InspectionRequest
         return Result.Ok();
     }
 
+    /// <summary>
+    /// Accepts the tenant's proposed new date. The landlord's own note in
+    /// <see cref="Notes"/> is left untouched — it belongs to the landlord, and
+    /// overwriting it with the tenant's reschedule note loses their text. The
+    /// tenant's note is kept in <see cref="RescheduleNote"/> as the record of
+    /// what they asked for.
+    /// </summary>
     public Result AcceptReschedule()
     {
         if (Status != InspectionStatus.ReschedulePending)
@@ -135,13 +149,16 @@ public class InspectionRequest
         // ProposedDate is always set when the status is ReschedulePending, but
         // fall back rather than null out a required date if that ever changes.
         ScheduledDate = ProposedDate ?? ScheduledDate;
-        Notes = RescheduleNote ?? Notes;
         ProposedDate = null;
-        RescheduleNote = null;
         Status = InspectionStatus.Confirmed;
         return Result.Ok();
     }
 
+    /// <summary>
+    /// Rejects the tenant's proposed date; the original booking stands. As with
+    /// AcceptReschedule, the landlord's note is left alone and the tenant's note
+    /// is retained for the record.
+    /// </summary>
     public Result RejectReschedule()
     {
         if (Status != InspectionStatus.ReschedulePending)
@@ -149,7 +166,6 @@ public class InspectionRequest
             return Result.Fail("Only a reschedule request can be rejected");
         }
         ProposedDate = null;
-        RescheduleNote = null;
         Status = InspectionStatus.Confirmed;
         return Result.Ok();
     }

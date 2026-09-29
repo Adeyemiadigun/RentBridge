@@ -33,7 +33,7 @@ public class ConfirmRescheduleCommandHandler(
         if (lease.LandlordUserId != user.Id && user.Role != UserRole.Admin)
         {
             logger.LogInformation("User {userId} is not authorized to confirm reschedule for lease {leaseId}", user.Id, request.LeaseId);
-            return Result.Fail("Only the landlord or an admin can confirm a reschedule");
+            return Result.Forbid("Only the landlord or an admin can confirm a reschedule");
         }
 
         var result = lease.ConfirmReschedule();

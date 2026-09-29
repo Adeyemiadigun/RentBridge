@@ -37,7 +37,7 @@ public class RequestInspectionCommandHandler(
 
                 if (lease.TenantUserId != user.Id)
                 {
-                    return Result.Fail("Only the tenant on this lease can request an inspection");
+                    return Result.Forbid("Only the tenant on this lease can request an inspection");
                 }
 
                 var result = lease.RequestInspection(user.Id, request.PreferredDate, request.Note);

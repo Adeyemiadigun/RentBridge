@@ -29,7 +29,7 @@ public class GetPropertyReviewsQueryHandler(
         if (user.Role is not (UserRole.Lawyer or UserRole.Admin))
         {
             logger.LogInformation("User {userId} is not authorized to browse property reviews", user.Id);
-            return Result<IReadOnlyList<PropertyReviewItem>>.Fail("Only a lawyer or admin can browse property reviews.");
+            return Result<IReadOnlyList<PropertyReviewItem>>.Forbid("Only a lawyer or admin can browse property reviews.");
         }
 
         var page = await unitOfWork.Repository<PropertyAggregate>().GetPagedAsync(

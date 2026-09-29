@@ -28,7 +28,7 @@ public class RejectDocumentCommandHandler(
         if (user.Role is not (UserRole.Lawyer or UserRole.Admin))
         {
             logger.LogInformation("User {userId} is not authorized to reject documents", user.Id);
-            return Result.Fail("Only a lawyer or admin can reject documents.");
+            return Result.Forbid("Only a lawyer or admin can reject documents.");
         }
 
         var property = await unitOfWork.Repository<PropertyAggregate>().FirstOrDefault(p => p.Id == request.PropertyId, cancellationToken);

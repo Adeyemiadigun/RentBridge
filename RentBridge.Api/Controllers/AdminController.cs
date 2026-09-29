@@ -35,7 +35,7 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new VerifyLawyerCommand(userId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { userId = result.Value, verified = true });
@@ -51,7 +51,7 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new SuspendLawyerCommand(userId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { userId = result.Value, suspended = true });
@@ -66,7 +66,7 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new RejectLawyerCommand(userId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { userId = result.Value, rejected = true });
@@ -82,7 +82,7 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetAdminDashboardQuery(), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -103,7 +103,7 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetTransactionMetricsQuery(from, to, granularity), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -123,7 +123,7 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetLawyersQuery(status, page, pageSize), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -143,7 +143,7 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetListingsForModerationQuery(status, page, pageSize), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -159,7 +159,7 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetFeeSettingsQuery(), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -175,7 +175,7 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -191,7 +191,7 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { userId = result.Value });

@@ -29,7 +29,7 @@ public sealed class GetTransactionMetricsQueryHandler(
         if (actor.Role != UserRole.Admin)
         {
             logger.LogInformation("User {UserId} attempted to view transaction metrics without admin role", actor.Id);
-            return Result<TransactionMetricsResponse>.Fail("Only an admin can view transaction metrics.");
+            return Result<TransactionMetricsResponse>.Forbid("Only an admin can view transaction metrics.");
         }
 
         var points = await unitOfWork.Ledger.GetTransactionMetricsAsync(

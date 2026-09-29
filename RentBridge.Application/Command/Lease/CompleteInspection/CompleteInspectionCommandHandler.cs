@@ -38,7 +38,7 @@ public sealed class CompleteInspectionCommandHandler(
             logger.LogInformation(
                 "User {userId} is not authorized to complete the inspection for lease {leaseId}",
                 user.Id, request.LeaseId);
-            return Result<LeaseTransitionResponse>.Fail("Only the landlord or an admin can complete an inspection");
+            return Result<LeaseTransitionResponse>.Forbid("Only the landlord or an admin can complete an inspection");
         }
 
         var result = lease.CompleteInspection(request.ActualDate, request.Notes);

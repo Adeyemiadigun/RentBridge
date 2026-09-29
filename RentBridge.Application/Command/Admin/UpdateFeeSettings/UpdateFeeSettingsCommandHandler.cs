@@ -29,7 +29,7 @@ public sealed class UpdateFeeSettingsCommandHandler(
         if (actor.Role != UserRole.Admin)
         {
             logger.LogInformation("User {UserId} attempted to update fee settings without admin role", actor.Id);
-            return Result<FeeSettingsResponse>.Fail("Only an admin can update fee settings.");
+            return Result<FeeSettingsResponse>.Forbid("Only an admin can update fee settings.");
         }
 
         var settingsRes = await settingsService.GetOrCreateAsync(cancellationToken);

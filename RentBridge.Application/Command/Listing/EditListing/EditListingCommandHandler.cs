@@ -32,7 +32,7 @@ namespace RentBridge.Application.Command.Listing
             if (listing.OwnerUserId != user.Id)
             {
                 logger.LogInformation("User {userId} is not the owner of listing {listingId}", user.Id, request.ListingId);
-                return Result<Guid>.Fail("You can only edit your own listing");
+                return Result<Guid>.Forbid("You can only edit your own listing");
             }
 
             Money? price = null;
