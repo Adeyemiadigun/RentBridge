@@ -90,7 +90,12 @@ public class Lease : Entity<Guid>
         return Result.Ok();
     }
 
-    public Result ConfirmInspection(DateTimeOffset? scheduledDate = null, string? notes = null)
+    /// <summary>
+    /// Accepts the inspection and books a date. This does NOT satisfy the
+    /// escrow release gate — arranging an inspection is not the same as the
+    /// inspection happening. The gate is stamped by CompleteInspection.
+    /// </summary>
+    public Result ConfirmInspection(DateTimeOffset scheduledDate, string? notes = null)
     {
         if (Status != LeaseStatus.InspectionRequested)
         {
@@ -110,8 +115,43 @@ public class Lease : Entity<Guid>
         }
 
         Status = LeaseStatus.InspectionConfirmed;
-        InspectionGatePassed = DateTimeOffset.UtcNow;
         Raise(new InspectionConfirmed(Id));
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Records that the inspection physically took place and stamps the
+    /// second of the three escrow release gates. This is the only writer of
+    /// <see cref="InspectionGatePassed"/>. Idempotent: a repeat call is a
+    /// no-op success rather than an error, so a retried webhook or double tap
+    /// cannot fail the request.
+    /// </summary>
+    public Result CompleteInspection(DateTimeOffset actualDate, string? notes = null)
+    {
+        if (InspectionGatePassed is not null)
+        {
+            return Result.Ok();
+        }
+
+        if (Status is not (LeaseStatus.InspectionConfirmed or LeaseStatus.LegalReview))
+        {
+            return Result.Fail("The inspection must be confirmed before it can be completed.");
+        }
+
+        var confirmed = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Confirmed);
+        if (confirmed is null)
+        {
+            return Result.Fail("No confirmed inspection to complete.");
+        }
+
+        var result = confirmed.Complete(actualDate, notes);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        InspectionGatePassed = DateTimeOffset.UtcNow;
+        Raise(new InspectionCompleted(Id, actualDate));
         return Result.Ok();
     }
 
@@ -319,7 +359,8 @@ public record InspectionRescheduleRequested(Guid LeaseId, DateTimeOffset Propose
 public record InspectionRescheduled(Guid LeaseId, DateTimeOffset NewDate) : IDomainEvent;
 public record InspectionRescheduleRejected(Guid LeaseId) : IDomainEvent;
 public record InspectionCancelled(Guid LeaseId) : IDomainEvent;
-public record InspectionConfirmed(Guid LeaseId) : IDomainEvent;
+    public record InspectionConfirmed(Guid LeaseId) : IDomainEvent;
+    public record InspectionCompleted(Guid LeaseId, DateTimeOffset ActualDate) : IDomainEvent;
 public record InspectionDeclined(Guid LeaseId) : IDomainEvent;
 public record LawyerAssigned(Guid LeaseId, Guid LawyerId) : IDomainEvent;
 public record AgreementCertified(Guid LeaseId) : IDomainEvent;

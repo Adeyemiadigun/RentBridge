@@ -122,7 +122,13 @@ public sealed class AgreementDocumentService(
                 BuildAddress(property.PropertyAddress)),
             new RentTerms(listing.Price.Amount, listing.Price.Currency),
             lease.CreatedAt,
+            // Prefer the date the inspection actually happened; fall back to the
+            // booked date while it is still only scheduled. A completed
+            // inspection can never revert to Confirmed, so this is stable once set.
             lease.InspectionRequests
+                .FirstOrDefault(r => r.Status == InspectionStatus.Completed)
+                ?.ActualDate
+            ?? lease.InspectionRequests
                 .FirstOrDefault(r => r.Status == InspectionStatus.Confirmed)
                 ?.ScheduledDate,
             DateTimeOffset.UtcNow);

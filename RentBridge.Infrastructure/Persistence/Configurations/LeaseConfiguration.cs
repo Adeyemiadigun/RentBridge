@@ -124,6 +124,11 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
             r.HasIndex(r => r.TenantUserId);
 
             r.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+
+            // Completion fields — populated only by InspectionRequest.Complete.
+            r.Property(x => x.ActualDate).HasColumnName("actual_date");
+            r.Property(x => x.Notes).HasColumnName("notes");
+            r.Property(x => x.CompletionNotes).HasColumnName("completion_notes");
         });
     }
 }

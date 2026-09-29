@@ -104,13 +104,15 @@ public sealed class GetCallerLeasesQueryHandler(
                     l.AssignedLawyerId is Guid lawyerId ? Party(lawyerId) : null,
                     l.InspectionRequests
                         .OrderByDescending(r => r.PreferredDate)
-                        .Select(r => new InspectionListItem(
-                            r.Id,
-                            r.Status.ToString(),
-                            r.PreferredDate,
-                            r.ScheduledDate,
-                            string.IsNullOrWhiteSpace(r.Note) ? null : r.Note))
-                        .FirstOrDefault());
+                    .Select(r => new InspectionListItem(
+                        r.Id,
+                        r.Status.ToString(),
+                        r.PreferredDate,
+                        r.ScheduledDate,
+                        string.IsNullOrWhiteSpace(r.Note) ? null : r.Note,
+                        r.ActualDate,
+                        string.IsNullOrWhiteSpace(r.Notes) ? null : r.Notes))
+                    .FirstOrDefault());
         }).ToList();
 
         return Result<PagedResult<LeaseListItem>>.Ok(

@@ -11,8 +11,9 @@ public sealed class ConfirmInspectionCommandValidator : AbstractValidator<Confir
             .WithMessage("Lease ID is required.");
 
         RuleFor(x => x.ScheduledDate)
+            .NotEmpty()
+            .WithMessage("A scheduled inspection date is required.")
             .GreaterThan(DateTimeOffset.UtcNow)
-            .When(x => x.ScheduledDate.HasValue)
             .WithMessage("The scheduled inspection date must be in the future.");
     }
 }
