@@ -61,9 +61,15 @@ public class RequestInspectionCommandHandler(
                     return Result.Fail(result.Error!);
                 }
 
+                // A brand-new InspectionRequest added to an already-tracked Lease is picked up
+                // as Modified, so EF would UPDATE a row that was never inserted.
+                if (result.Value is not null)
+                {
+                    unitOfWork.MarkAsAdded(result.Value);
+                }
+
                 logger.LogInformation("[DEBUG] Saving changes...");
-                await unitOfWork.SaveChangesAsync(cancellationToken);
-                logger.LogInformation("[DEBUG] SaveChanges succeeded");
+                await unitOfWork.SaveChangesAsync(cancellationToken);                logger.LogInformation("[DEBUG] SaveChanges succeeded");
                 return Result.Ok();
             }
             catch (DbUpdateConcurrencyException ex) when (attempt < MaxRetryAttempts - 1)

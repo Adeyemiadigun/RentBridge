@@ -43,7 +43,12 @@ public class Lease : Entity<Guid>
         Raise(new LeaseCreated(Id));
     }
 
-    public Result RequestInspection(Guid tenantUserId, DateTimeOffset preferredDate, string? note = null)
+    /// <summary>
+    /// Requests an inspection for this lease. The returned value is the newly created
+    /// <see cref="InspectionRequest"/>, or null when an already-pending request was
+    /// updated instead (idempotent path).
+    /// </summary>
+    public Result<InspectionRequest?> RequestInspection(Guid tenantUserId, DateTimeOffset preferredDate, string? note = null)
     {
         Console.WriteLine($"[DEBUG DOMAIN] RequestInspection called. Status={Status}, InspectionRequestsCount={_inspectionRequests.Count}");
         foreach (var ir in _inspectionRequests)
@@ -54,7 +59,7 @@ public class Lease : Entity<Guid>
         if (Status is not (LeaseStatus.Initiated or LeaseStatus.InspectionRequested))
         {
             Console.WriteLine($"[DEBUG DOMAIN] RequestInspection failed: Status={Status} not in (Initiated, InspectionRequested)");
-            return Result.Fail("Inspection can only be requested before the inspection is confirmed.");
+            return Result<InspectionRequest?>.Fail("Inspection can only be requested before the inspection is confirmed.");
         }
 
         // If there's already a pending inspection request, return success (idempotent)
@@ -67,20 +72,21 @@ public class Lease : Entity<Guid>
             if (!result.IsSuccess)
             {
                 Console.WriteLine($"[DEBUG DOMAIN] UpdateDetails failed: {result.Error}");
-                return result;
+                return Result<InspectionRequest?>.Fail(result.Error!);
             }
             if (Status == LeaseStatus.Initiated)
                 Status = LeaseStatus.InspectionRequested;
             Raise(new InspectionRequested(Id, preferredDate));
-            return Result.Ok();
+            return Result<InspectionRequest?>.Ok(null);
         }
 
         Console.WriteLine($"[DEBUG DOMAIN] Adding new InspectionRequest");
-        _inspectionRequests.Add(new InspectionRequest(tenantUserId, preferredDate, note));
+        var newRequest = new InspectionRequest(tenantUserId, preferredDate, note);
+        _inspectionRequests.Add(newRequest);
         if (Status == LeaseStatus.Initiated)
             Status = LeaseStatus.InspectionRequested;
         Raise(new InspectionRequested(Id, preferredDate));
-        return Result.Ok();
+        return Result<InspectionRequest?>.Ok(newRequest);
     }
 
     public Result BeginInspectionFlow()

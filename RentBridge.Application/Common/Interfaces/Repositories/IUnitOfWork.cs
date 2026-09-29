@@ -23,6 +23,13 @@ namespace RentBridge.Application.Common.Interfaces.Repositories
         Task<bool> TryClaimEscrowPayoutAsync(Guid escrowPaymentId, string payoutReference, CancellationToken cancellationToken);
 
         /// <summary>
+        /// Marks a newly created entity as Added. Children added to the collection of an
+        /// already-tracked aggregate are otherwise picked up as Modified, which makes EF
+        /// emit an UPDATE against a row that does not exist yet.
+        /// </summary>
+        void MarkAsAdded<T>(T entity) where T : class;
+
+        /// <summary>
         /// Clears the EF Core change tracker to force fresh entity loads on retry.
         /// </summary>
         void ClearChangeTracker();
