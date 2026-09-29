@@ -47,23 +47,12 @@ public sealed class CertifyAgreementCommandHandler(
             return Result.Fail(composed.Error!);
         }
 
+        // No lazy pick here: a round-robin pick can never be the caller, so it
+        // would only consume a slot and then fail the ownership check below.
         if (lease.AssignedLawyerId is null)
         {
-            var picked = await lawyerService.PickNextVerifiedLawyerAsync(cancellationToken);
-            if (!picked.IsSuccess)
-            {
-                logger.LogWarning("No verified lawyer available for lease {LeaseId}: {Error}", request.LeaseId, picked.Error);
-                return Result.Fail("No verified lawyer is currently available. Contact an admin.");
-            }
-
-            var assign = lease.AssignLawyer(picked.Value);
-            if (!assign.IsSuccess)
-            {
-                logger.LogInformation(
-                    "Lease {LeaseId} cannot be assigned lawyer {LawyerId}: {Error}",
-                    request.LeaseId, picked.Value, assign.Error);
-                return Result.Fail(assign.Error!);
-            }
+            logger.LogInformation("Lease {LeaseId} has no assigned lawyer; cannot certify", request.LeaseId);
+            return Result.Fail("No lawyer is assigned to this lease yet.");
         }
 
         if (user.Id != lease.AssignedLawyerId)

@@ -40,7 +40,6 @@ public class LeaseRepository : ILeaseRepository
         
         // Verify Version/xmin was loaded
         var versionVal = _context.Entry(entity).Property("Version").CurrentValue;
-        System.Diagnostics.Debug.WriteLine($"[DEBUG REPO] Loaded lease {entity.Id}, Version={versionVal}");
         
         return entity;
     }

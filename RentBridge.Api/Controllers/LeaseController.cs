@@ -89,6 +89,8 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
     /// The landlord or an admin confirms the inspection
     /// (InspectionRequested → InspectionConfirmed). Optionally records the
     /// scheduled physical-inspection date and notes. Raises InspectionConfirmed.
+    /// A lawyer is auto-assigned here, but the lease stays in
+    /// InspectionConfirmed — call POST legal-review to advance it.
     /// </summary>
     [HttpPost("{leaseId:guid}/inspection/confirm")]
     public async Task<IActionResult> ConfirmInspection(Guid leaseId, [FromBody] ConfirmInspectionRequest? request, CancellationToken ct)
@@ -100,7 +102,12 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
             return BadRequest(new { error = result.Error });
         }
 
-        return Ok(new { success = true });
+        return Ok(new
+        {
+            success = true,
+            leaseId = result.Value.LeaseId,
+            status = result.Value.Status,
+        });
     }
 
     /// <summary>

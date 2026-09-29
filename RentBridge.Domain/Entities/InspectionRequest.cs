@@ -1,4 +1,4 @@
-﻿using RentBridge.Domain.Common;
+using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 
 namespace RentBridge.Domain.Entities;
@@ -31,86 +31,68 @@ public class InspectionRequest
         PreferredDate = preferredDate;
         Note = note;
         Status = InspectionStatus.Pending;
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest created: Id={Id}, TenantUserId={TenantUserId}, PreferredDate={PreferredDate}, Status={Status}");
     }
 
     public Result Confirm(DateTimeOffset? scheduledDate = null, string? notes = null)
     {
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.Confirm called. Id={Id}, CurrentStatus={Status}");
         if (Status != InspectionStatus.Pending)
         {
-            Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.Confirm failed: Status={Status} != Pending");
             return Result.Fail("Only pending inspections can be confirmed");
         }
         ScheduledDate = scheduledDate;
         Notes = notes;
         Status = InspectionStatus.Confirmed;
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.Confirm succeeded. Status now={Status}");
         return Result.Ok();
     }
 
     public Result Decline()
     {
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.Decline called. Id={Id}, CurrentStatus={Status}");
         if (Status != InspectionStatus.Pending)
         {
-            Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.Decline failed: Status={Status} != Pending");
             return Result.Fail("Only pending inspections can be declined");
         }
         Status = InspectionStatus.Declined;
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.Decline succeeded. Status now={Status}");
         return Result.Ok();
     }
 
     public Result Cancel()
     {
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.Cancel called. Id={Id}, CurrentStatus={Status}");
         if (Status != InspectionStatus.Pending)
         {
-            Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.Cancel failed: Status={Status} != Pending");
             return Result.Fail("Only pending inspections can be cancelled");
         }
         Status = InspectionStatus.Cancelled;
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.Cancel succeeded. Status now={Status}");
         return Result.Ok();
     }
 
     public Result UpdateDetails(DateTimeOffset preferredDate, string? note = null)
     {
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.UpdateDetails called. Id={Id}, CurrentStatus={Status}");
         if (Status != InspectionStatus.Pending)
         {
-            Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.UpdateDetails failed: Status={Status} != Pending");
             return Result.Fail("Only pending inspections can be updated");
         }
         PreferredDate = preferredDate;
         if (!string.IsNullOrWhiteSpace(note))
             Note = note;
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.UpdateDetails succeeded");
         return Result.Ok();
     }
 
     public Result ProposeReschedule(DateTimeOffset newDate, string? note = null)
     {
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.ProposeReschedule called. Id={Id}, CurrentStatus={Status}");
         if (Status != InspectionStatus.Confirmed)
         {
-            Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.ProposeReschedule failed: Status={Status} != Confirmed");
             return Result.Fail("Only a confirmed inspection can be rescheduled");
         }
         ProposedDate = newDate;
         RescheduleNote = note;
         Status = InspectionStatus.ReschedulePending;
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.ProposeReschedule succeeded. Status now={Status}");
         return Result.Ok();
     }
 
     public Result AcceptReschedule()
     {
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.AcceptReschedule called. Id={Id}, CurrentStatus={Status}");
         if (Status != InspectionStatus.ReschedulePending)
         {
-            Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.AcceptReschedule failed: Status={Status} != ReschedulePending");
             return Result.Fail("Only a reschedule request can be accepted");
         }
         ScheduledDate = ProposedDate;
@@ -118,22 +100,18 @@ public class InspectionRequest
         ProposedDate = null;
         RescheduleNote = null;
         Status = InspectionStatus.Confirmed;
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.AcceptReschedule succeeded. Status now={Status}");
         return Result.Ok();
     }
 
     public Result RejectReschedule()
     {
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.RejectReschedule called. Id={Id}, CurrentStatus={Status}");
         if (Status != InspectionStatus.ReschedulePending)
         {
-            Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.RejectReschedule failed: Status={Status} != ReschedulePending");
             return Result.Fail("Only a reschedule request can be rejected");
         }
         ProposedDate = null;
         RescheduleNote = null;
         Status = InspectionStatus.Confirmed;
-        Console.WriteLine($"[DEBUG DOMAIN] InspectionRequest.RejectReschedule succeeded. Status now={Status}");
         return Result.Ok();
     }
 }
