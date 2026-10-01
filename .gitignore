@@ -3,14 +3,22 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Local environment overrides. Both casings are listed on purpose: git's
+# ignore matching is case-insensitive only when core.ignorecase is true,
+# which is the default on Windows but NOT on Linux, macOS or CI. A single
+# capital-D rule protects the password-bearing file here and nowhere else.
 appsettings.Development.json
+appsettings.development.json
+
 # User-specific files
 *.rsuser
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
-*.md
+# NOTE: the VisualStudio template this came from also listed "*.md" here.
+# That silently ignored README.md and everything in docs/. Removed on
+# purpose - project documentation belongs in version control.
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
