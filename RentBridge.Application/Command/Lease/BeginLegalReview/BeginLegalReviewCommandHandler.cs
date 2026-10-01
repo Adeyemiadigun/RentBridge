@@ -37,7 +37,7 @@ public sealed class BeginLegalReviewCommandHandler(
         if (!isParty && !isStaff)
         {
             logger.LogInformation("User {UserId} is not a party to lease {LeaseId}", user.Id, request.LeaseId);
-            return Result.Fail("Only the tenant, landlord, lawyer, or admin can begin legal review.");
+            return Result.Forbid("Only the tenant, landlord, lawyer, or admin can begin legal review.");
         }
 
         var composed = await agreementService.EnsureComposedAsync(lease, cancellationToken);

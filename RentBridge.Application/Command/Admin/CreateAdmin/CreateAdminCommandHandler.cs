@@ -35,7 +35,7 @@ public sealed class CreateAdminCommandHandler(
             || !string.Equals(caller.Email.Value, defaultEmail, StringComparison.OrdinalIgnoreCase))
         {
             logger.LogInformation("Blocked non-default admin creation attempt by user {UserId}", callerId);
-            return Result<Guid>.Fail("Only the default admin can create admin accounts.");
+            return Result<Guid>.Forbid("Only the default admin can create admin accounts.");
         }
 
         var emailExists = await unitOfWork.Repository<User>()

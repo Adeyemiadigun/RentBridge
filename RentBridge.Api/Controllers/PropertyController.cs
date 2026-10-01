@@ -28,7 +28,7 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { propertyId = result.Value });
@@ -43,7 +43,7 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new StartDocumentReviewCommand(propertyId, documentId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -58,7 +58,7 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new VerifyDocumentCommand(propertyId, documentId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -73,7 +73,7 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new RejectDocumentCommand(propertyId, documentId, reason), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -89,7 +89,7 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new VerifyPropertyCommand(propertyId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -105,7 +105,7 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetPropertyReviewsQuery(), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -121,7 +121,7 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new SubmitPropertyForReviewCommand(propertyId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true, message = "Property submitted for legal review. A lawyer will be assigned shortly." });
@@ -137,7 +137,7 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(query, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -153,7 +153,7 @@ public sealed class PropertyController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new DeletePropertyCommand(propertyId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true, message = "Property and associated files deleted successfully." });

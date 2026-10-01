@@ -10,5 +10,8 @@ namespace RentBridge.Application.Command.Lease;
 /// </summary>
 public sealed record LeaseTransitionResponse(Guid LeaseId, string Status);
 
-public record class ConfirmInspectionCommand(Guid LeaseId, DateTimeOffset? ScheduledDate = null, string? Notes = null)
+public record class ConfirmInspectionCommand(
+    Guid LeaseId,
+    DateTimeOffset ScheduledDate,
+    string? Notes = null)
     : IRequest<Result<LeaseTransitionResponse>>;

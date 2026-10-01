@@ -32,7 +32,7 @@ public sealed class GetListingsForModerationQueryHandler(
         if (actor.Role != UserRole.Admin)
         {
             logger.LogInformation("User {UserId} attempted to list listings for moderation without admin role", actor.Id);
-            return Result<PagedResult<ListingModerationItem>>.Fail("Only an admin can moderate listings.");
+            return Result<PagedResult<ListingModerationItem>>.Forbid("Only an admin can moderate listings.");
         }
 
         var page = await unitOfWork.Repository<ListingAggregate>().GetPagedAsync(

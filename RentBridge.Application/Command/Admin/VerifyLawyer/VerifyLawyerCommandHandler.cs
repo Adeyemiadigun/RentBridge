@@ -27,7 +27,7 @@ public sealed class VerifyLawyerCommandHandler(
         if (actor.Role != UserRole.Admin)
         {
             logger.LogInformation("User {UserId} attempted to verify lawyers without admin role", actor.Id);
-            return Result<Guid>.Fail("Only an admin can verify lawyers.");
+            return Result<Guid>.Forbid("Only an admin can verify lawyers.");
         }
 
         var lawyer = await unitOfWork.Repository<UserAggregate>()
@@ -40,7 +40,7 @@ public sealed class VerifyLawyerCommandHandler(
 
         if (lawyer.Role != UserRole.Lawyer)
         {
-            return Result<Guid>.Fail("Only lawyer accounts can be verified.");
+            return Result<Guid>.Forbid("Only lawyer accounts can be verified.");
         }
 
         if (lawyer.LawyerProfile is null)

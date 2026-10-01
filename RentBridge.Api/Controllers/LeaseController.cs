@@ -30,7 +30,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { leaseId = result.Value });
@@ -47,7 +47,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetCallerLeasesQuery(page, pageSize), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -64,7 +64,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -79,27 +79,53 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new BeginInspectionFlowCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
     }
 
     /// <summary>
-    /// The landlord or an admin confirms the inspection
-    /// (InspectionRequested → InspectionConfirmed). Optionally records the
-    /// scheduled physical-inspection date and notes. Raises InspectionConfirmed.
-    /// A lawyer is auto-assigned here, but the lease stays in
-    /// InspectionConfirmed — call POST legal-review to advance it.
+    /// The landlord or an admin accepts the inspection and books it
+    /// (InspectionRequested → InspectionConfirmed). A scheduled date is
+    /// required. Raises InspectionConfirmed and auto-assigns a lawyer, but the
+    /// lease stays in InspectionConfirmed — this does NOT yet satisfy the
+    /// escrow release gate; call POST inspection/complete once the inspection
+    /// has actually taken place, then POST legal-review to advance the lease.
     /// </summary>
     [HttpPost("{leaseId:guid}/inspection/confirm")]
-    public async Task<IActionResult> ConfirmInspection(Guid leaseId, [FromBody] ConfirmInspectionRequest? request, CancellationToken ct)
+    public async Task<IActionResult> ConfirmInspection(Guid leaseId, [FromBody] ConfirmInspectionRequest request, CancellationToken ct)
     {
-        var command = new ConfirmInspectionCommand(leaseId, request?.ScheduledDate, request?.Notes);
+        var command = new ConfirmInspectionCommand(leaseId, request.ScheduledDate, request.Notes);
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
+        }
+
+        return Ok(new
+        {
+            success = true,
+            leaseId = result.Value.LeaseId,
+            status = result.Value.Status,
+        });
+    }
+
+    /// <summary>
+    /// The landlord or an admin records that the inspection physically took
+    /// place. This is what stamps the escrow release gate, so the actual date
+    /// is required and cannot be in the future. Idempotent — a repeat call
+    /// succeeds without re-stamping. Raises InspectionCompleted and attempts
+    /// the escrow payout if all three gates are now satisfied.
+    /// </summary>
+    [HttpPost("{leaseId:guid}/inspection/complete")]
+    public async Task<IActionResult> CompleteInspection(Guid leaseId, [FromBody] CompleteInspectionRequest request, CancellationToken ct)
+    {
+        var command = new CompleteInspectionCommand(leaseId, request.ActualDate, request.Notes);
+        var result = await mediator.Send(command, ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
         }
 
         return Ok(new
@@ -120,7 +146,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new DeclineInspectionCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -136,7 +162,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new CancelInspectionCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -153,7 +179,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -169,7 +195,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new ConfirmRescheduleCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -185,7 +211,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new RejectRescheduleCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -202,7 +228,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new BeginLegalReviewCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -218,7 +244,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new CertifyAgreementCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -235,7 +261,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(command, ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { success = true });
@@ -251,7 +277,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetLeaseAgreementQuery(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -269,7 +295,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetLeaseAgreementPdfQuery(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         var pdf = result.Value;
@@ -286,7 +312,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new FundEscrowCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -303,7 +329,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new ReleaseEscrowCommand(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new { released = true });
@@ -324,7 +350,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetLeaseTransactionsQuery(leaseId, page, pageSize), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -341,7 +367,7 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetLeaseQuery(leaseId), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);

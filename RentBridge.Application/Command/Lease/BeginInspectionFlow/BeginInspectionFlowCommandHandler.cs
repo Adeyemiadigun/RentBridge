@@ -30,7 +30,7 @@ public class BeginInspectionFlowCommandHandler(
 
         if (lease.LandlordUserId != user.Id)
         {
-            return Result.Fail("Only the landlord can begin the inspection flow");
+            return Result.Forbid("Only the landlord can begin the inspection flow");
         }
 
         var result = lease.BeginInspectionFlow();

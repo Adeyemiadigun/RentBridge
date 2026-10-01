@@ -28,7 +28,7 @@ namespace RentBridge.Application.Command.Listing
             if (listing.OwnerUserId != user.Id && user.Role != RentBridge.Domain.Enums.UserRole.Admin)
             {
                 logger.LogInformation("User {userId} is not the owner of listing {listingId}", user.Id, request.ListingId);
-                return Result<Guid>.Fail("You can only publish your own listing");
+                return Result<Guid>.Forbid("You can only publish your own listing");
             }
             // Owner onboarding gates only apply to the publisher; an admin moderating
             // another owner's listing acts on behalf of the platform.

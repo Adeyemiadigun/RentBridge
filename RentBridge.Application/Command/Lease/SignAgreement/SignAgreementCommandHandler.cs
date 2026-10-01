@@ -41,7 +41,7 @@ public sealed class SignAgreementCommandHandler(
         if (!isTenant && !isLandlord)
         {
             logger.LogInformation("User {UserId} is not a party to lease {LeaseId}", user.Id, request.LeaseId);
-            return Result.Fail("Only the tenant or landlord of this lease can sign the agreement.");
+            return Result.Forbid("Only the tenant or landlord of this lease can sign the agreement.");
         }
 
         var party = isTenant ? LeaseParty.Tenant : LeaseParty.Landlord;

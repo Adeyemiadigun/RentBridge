@@ -1,4 +1,4 @@
-﻿using RentBridge.Domain.Common;
+using RentBridge.Domain.Common;
 using RentBridge.Domain.Entities;
 using RentBridge.Domain.Enums;
 using RentBridge.Domain.ValueObjects;
@@ -7,6 +7,13 @@ namespace RentBridge.Domain.Aggregates;
 
 public class Lease : Entity<Guid>
 {
+    // Invariant: at most one inspection request per lease is in a live status
+    // (Pending, Confirmed, ReschedulePending) at a time. Lookups below use
+    // FirstOrDefault rather than SingleOrDefault on purpose — if bad data ever
+    // violates that invariant, SingleOrDefault throws InvalidOperationException
+    // and turns a domain guard into an unhandled 500. FirstOrDefault degrades to
+    // the normal "no such request" validation failure instead.
+
     public Guid ListingId { get; private set; }
     public Guid TenantUserId { get; private set; }
     public Guid LandlordUserId { get; private set; }
@@ -90,14 +97,19 @@ public class Lease : Entity<Guid>
         return Result.Ok();
     }
 
-    public Result ConfirmInspection(DateTimeOffset? scheduledDate = null, string? notes = null)
+    /// <summary>
+    /// Accepts the inspection and books a date. This does NOT satisfy the
+    /// escrow release gate — arranging an inspection is not the same as the
+    /// inspection happening. The gate is stamped by CompleteInspection.
+    /// </summary>
+    public Result ConfirmInspection(DateTimeOffset scheduledDate, string? notes = null)
     {
         if (Status != LeaseStatus.InspectionRequested)
         {
             return Result.Fail("No pending inspection to confirm.");
         }
 
-        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        var pending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Pending);
         if (pending is null)
         {
             return Result.Fail("No pending inspection request to confirm.");
@@ -110,8 +122,43 @@ public class Lease : Entity<Guid>
         }
 
         Status = LeaseStatus.InspectionConfirmed;
-        InspectionGatePassed = DateTimeOffset.UtcNow;
         Raise(new InspectionConfirmed(Id));
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Records that the inspection physically took place and stamps the
+    /// second of the three escrow release gates. This is the only writer of
+    /// <see cref="InspectionGatePassed"/>. Idempotent: a repeat call is a
+    /// no-op success rather than an error, so a retried webhook or double tap
+    /// cannot fail the request.
+    /// </summary>
+    public Result CompleteInspection(DateTimeOffset actualDate, string? notes = null)
+    {
+        if (InspectionGatePassed is not null)
+        {
+            return Result.Ok();
+        }
+
+        if (Status is not (LeaseStatus.InspectionConfirmed or LeaseStatus.LegalReview))
+        {
+            return Result.Fail("The inspection must be confirmed before it can be completed.");
+        }
+
+        var confirmed = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Confirmed);
+        if (confirmed is null)
+        {
+            return Result.Fail("No confirmed inspection to complete.");
+        }
+
+        var result = confirmed.Complete(actualDate, notes);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        InspectionGatePassed = DateTimeOffset.UtcNow;
+        Raise(new InspectionCompleted(Id, actualDate));
         return Result.Ok();
     }
 
@@ -122,7 +169,7 @@ public class Lease : Entity<Guid>
             return Result.Fail("No pending inspection flow to decline.");
         }
 
-        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        var pending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Pending);
         if (pending is null)
         {
             return Result.Fail("No pending inspection request to decline.");
@@ -146,7 +193,7 @@ public class Lease : Entity<Guid>
 
         if (Status != LeaseStatus.InspectionRequested) return Result.Fail("No pending inspection flow to cancel.");
 
-        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Pending);
+        var pending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Pending);
         if (pending is null) return Result.Fail("No pending inspection request to cancel.");
 
         var result = pending.Cancel();
@@ -164,7 +211,7 @@ public class Lease : Entity<Guid>
 
         if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("Inspection must be confirmed before rescheduling.");
 
-        var confirmed = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.Confirmed);
+        var confirmed = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.Confirmed);
         if (confirmed is null) return Result.Fail("No confirmed inspection to reschedule.");
 
         var result = confirmed.ProposeReschedule(newDate, note);
@@ -178,7 +225,7 @@ public class Lease : Entity<Guid>
     {
         if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("No confirmed inspection to reschedule.");
 
-        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.ReschedulePending);
+        var pending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.ReschedulePending);
         if (pending is null) return Result.Fail("No pending reschedule request.");
 
         var result = pending.AcceptReschedule();
@@ -192,7 +239,7 @@ public class Lease : Entity<Guid>
     {
         if (Status != LeaseStatus.InspectionConfirmed) return Result.Fail("No confirmed inspection to reschedule.");
 
-        var pending = _inspectionRequests.SingleOrDefault(r => r.Status == InspectionStatus.ReschedulePending);
+        var pending = _inspectionRequests.FirstOrDefault(r => r.Status == InspectionStatus.ReschedulePending);
         if (pending is null) return Result.Fail("No pending reschedule request.");
 
         var result = pending.RejectReschedule();
@@ -319,7 +366,8 @@ public record InspectionRescheduleRequested(Guid LeaseId, DateTimeOffset Propose
 public record InspectionRescheduled(Guid LeaseId, DateTimeOffset NewDate) : IDomainEvent;
 public record InspectionRescheduleRejected(Guid LeaseId) : IDomainEvent;
 public record InspectionCancelled(Guid LeaseId) : IDomainEvent;
-public record InspectionConfirmed(Guid LeaseId) : IDomainEvent;
+    public record InspectionConfirmed(Guid LeaseId) : IDomainEvent;
+    public record InspectionCompleted(Guid LeaseId, DateTimeOffset ActualDate) : IDomainEvent;
 public record InspectionDeclined(Guid LeaseId) : IDomainEvent;
 public record LawyerAssigned(Guid LeaseId, Guid LawyerId) : IDomainEvent;
 public record AgreementCertified(Guid LeaseId) : IDomainEvent;

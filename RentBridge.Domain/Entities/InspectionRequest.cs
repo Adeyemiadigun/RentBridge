@@ -7,18 +7,44 @@ namespace RentBridge.Domain.Entities;
 /// Owned child entity of the Lease aggregate. Not an aggregate root —
 /// an inspection request only exists within its Lease. The Lease
 /// aggregate coordinates the inspection lifecycle; this entity records
-/// a single requested/confirmed/declined inspection. Persisted via the
+/// a single requested → confirmed → completed inspection. Persisted via the
 /// Lease's OwnsMany mapping.
+///
+/// Two distinct dates, deliberately:
+/// <list type="bullet">
+///   <item><see cref="ScheduledDate"/> — when the inspection is planned. Required.</item>
+///   <item><see cref="ActualDate"/> — when the inspection actually happened. Set by
+///   <see cref="Complete"/> only, and this is what stamps the escrow release gate.</item>
+/// </list>
 /// </summary>
 public class InspectionRequest
 {
     public Guid Id { get; private set; }
     public Guid TenantUserId { get; private set; }
     public DateTimeOffset PreferredDate { get; private set; }
+
+    /// <summary>When the inspection is planned. Required once confirmed.</summary>
     public DateTimeOffset? ScheduledDate { get; private set; }
+
+    /// <summary>Landlord's notes recorded at confirmation time.</summary>
     public string? Notes { get; private set; }
+
     public DateTimeOffset? ProposedDate { get; private set; }
+    /// <summary>
+    /// The tenant's reason for requesting a reschedule. Unlike
+    /// <see cref="ProposedDate"/> this is deliberately NOT cleared when the
+    /// request is accepted or rejected — it is the only record of what the
+    /// tenant asked for, and it belongs to them rather than to the landlord's
+    /// <see cref="Notes"/>. Overwritten if the tenant proposes again.
+    /// </summary>
     public string? RescheduleNote { get; private set; }
+
+    /// <summary>When the inspection actually took place. Null until completed.</summary>
+    public DateTimeOffset? ActualDate { get; private set; }
+
+    /// <summary>Landlord's notes recorded at completion time. Kept separate from <see cref="Notes"/>.</summary>
+    public string? CompletionNotes { get; private set; }
+
     public InspectionStatus Status { get; private set; }
     public string? Note { get; private set; }
 
@@ -33,7 +59,7 @@ public class InspectionRequest
         Status = InspectionStatus.Pending;
     }
 
-    public Result Confirm(DateTimeOffset? scheduledDate = null, string? notes = null)
+    public Result Confirm(DateTimeOffset scheduledDate, string? notes = null)
     {
         if (Status != InspectionStatus.Pending)
         {
@@ -42,6 +68,24 @@ public class InspectionRequest
         ScheduledDate = scheduledDate;
         Notes = notes;
         Status = InspectionStatus.Confirmed;
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Records that the inspection physically took place. Terminal for this
+    /// request: once completed it can no longer be rescheduled, declined or
+    /// cancelled. This is what satisfies the escrow release gate.
+    /// </summary>
+    public Result Complete(DateTimeOffset actualDate, string? notes = null)
+    {
+        if (Status != InspectionStatus.Confirmed)
+        {
+            return Result.Fail("Only a confirmed inspection can be completed");
+        }
+
+        ActualDate = actualDate;
+        CompletionNotes = notes;
+        Status = InspectionStatus.Completed;
         return Result.Ok();
     }
 
@@ -89,20 +133,32 @@ public class InspectionRequest
         return Result.Ok();
     }
 
+    /// <summary>
+    /// Accepts the tenant's proposed new date. The landlord's own note in
+    /// <see cref="Notes"/> is left untouched — it belongs to the landlord, and
+    /// overwriting it with the tenant's reschedule note loses their text. The
+    /// tenant's note is kept in <see cref="RescheduleNote"/> as the record of
+    /// what they asked for.
+    /// </summary>
     public Result AcceptReschedule()
     {
         if (Status != InspectionStatus.ReschedulePending)
         {
             return Result.Fail("Only a reschedule request can be accepted");
         }
-        ScheduledDate = ProposedDate;
-        Notes = RescheduleNote ?? Notes;
+        // ProposedDate is always set when the status is ReschedulePending, but
+        // fall back rather than null out a required date if that ever changes.
+        ScheduledDate = ProposedDate ?? ScheduledDate;
         ProposedDate = null;
-        RescheduleNote = null;
         Status = InspectionStatus.Confirmed;
         return Result.Ok();
     }
 
+    /// <summary>
+    /// Rejects the tenant's proposed date; the original booking stands. As with
+    /// AcceptReschedule, the landlord's note is left alone and the tenant's note
+    /// is retained for the record.
+    /// </summary>
     public Result RejectReschedule()
     {
         if (Status != InspectionStatus.ReschedulePending)
@@ -110,7 +166,6 @@ public class InspectionRequest
             return Result.Fail("Only a reschedule request can be rejected");
         }
         ProposedDate = null;
-        RescheduleNote = null;
         Status = InspectionStatus.Confirmed;
         return Result.Ok();
     }

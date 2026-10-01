@@ -53,7 +53,7 @@ public class ConfirmInspectionCommandHandler(
                     logger.LogInformation(
                         "User {userId} is not authorized to confirm inspection for lease {leaseId}",
                         user.Id, request.LeaseId);
-                    return Result<LeaseTransitionResponse>.Fail("Only the landlord or an admin can confirm an inspection");
+                    return Result<LeaseTransitionResponse>.Forbid("Only the landlord or an admin can confirm an inspection");
                 }
 
                 var result = lease.ConfirmInspection(request.ScheduledDate, request.Notes);

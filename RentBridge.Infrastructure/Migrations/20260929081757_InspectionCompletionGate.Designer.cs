@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RentBridge.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using RentBridge.Infrastructure.Persistence;
 namespace RentBridge.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260929081757_InspectionCompletionGate")]
+    partial class InspectionCompletionGate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -879,10 +882,7 @@ namespace RentBridge.Infrastructure.Migrations
 
                             b1.HasKey("Id");
 
-                            b1.HasIndex("LeaseId")
-                                .IsUnique()
-                                .HasDatabaseName("IX_inspection_requests_LeaseId_live")
-                                .HasFilter("\"Status\" IN ('Pending', 'Confirmed', 'ReschedulePending')");
+                            b1.HasIndex("LeaseId");
 
                             b1.HasIndex("TenantUserId");
 

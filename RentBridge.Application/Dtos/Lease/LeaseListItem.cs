@@ -25,4 +25,6 @@ public sealed record InspectionListItem(
     string Status,
     DateTimeOffset? PreferredDate,
     DateTimeOffset? ScheduledDate,
-    string? Note);
+    string? Note,
+    DateTimeOffset? ActualDate = null,
+    string? Notes = null);

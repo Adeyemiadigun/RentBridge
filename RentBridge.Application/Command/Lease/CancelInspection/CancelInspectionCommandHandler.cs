@@ -39,7 +39,7 @@ public class CancelInspectionCommandHandler(
                 if (lease.TenantUserId != user.Id)
                 {
                     logger.LogInformation("User {userId} is not the tenant of lease {leaseId}", user.Id, request.LeaseId);
-                    return Result.Fail("Only the tenant on this lease can cancel an inspection request");
+                    return Result.Forbid("Only the tenant on this lease can cancel an inspection request");
                 }
 
                 var result = lease.CancelPendingInspection(user.Id);

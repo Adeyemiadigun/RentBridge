@@ -65,7 +65,7 @@ public sealed class KycController(
 
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(new
@@ -102,7 +102,7 @@ public sealed class KycController(
 
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);
@@ -129,7 +129,7 @@ public sealed class KycController(
 
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         var data = result.Value.Session?.Data;

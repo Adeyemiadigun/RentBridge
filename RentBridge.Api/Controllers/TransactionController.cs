@@ -31,7 +31,7 @@ public sealed class TransactionController(IMediator mediator) : ControllerBase
         var result = await mediator.Send(new GetTransactionHistoryQuery(page, pageSize), ct);
         if (result.IsSuccess is false)
         {
-            return BadRequest(new { error = result.Error });
+            return result.ToErrorResponse();
         }
 
         return Ok(result.Value);

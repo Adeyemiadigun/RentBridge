@@ -43,7 +43,7 @@ public sealed class FundEscrowCommandHandler(
         if (lease.TenantUserId != tenant.Id)
         {
             logger.LogInformation("User {UserId} tried to fund escrow on a lease they do not tenant", tenant.Id);
-            return Result<FundEscrowResponse>.Fail("Only the tenant on this lease can fund escrow.");
+            return Result<FundEscrowResponse>.Forbid("Only the tenant on this lease can fund escrow.");
         }
 
         // Idempotent re-entry: return the existing initialized checkout.

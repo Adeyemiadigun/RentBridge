@@ -27,7 +27,7 @@ public sealed class RejectLawyerCommandHandler(
         if (actor.Role != UserRole.Admin)
         {
             logger.LogInformation("User {UserId} attempted to reject lawyers without admin role", actor.Id);
-            return Result<Guid>.Fail("Only an admin can reject lawyers.");
+            return Result<Guid>.Forbid("Only an admin can reject lawyers.");
         }
 
         var lawyer = await unitOfWork.Repository<UserAggregate>()
@@ -40,7 +40,7 @@ public sealed class RejectLawyerCommandHandler(
 
         if (lawyer.Role != UserRole.Lawyer)
         {
-            return Result<Guid>.Fail("Only lawyer accounts can be rejected.");
+            return Result<Guid>.Forbid("Only lawyer accounts can be rejected.");
         }
 
         if (lawyer.LawyerProfile is null)

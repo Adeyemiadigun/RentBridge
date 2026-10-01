@@ -67,7 +67,7 @@ public class LawyerAssignmentService(
             return Result<Guid>.Ok(current.Value);
 
         if (actor.Role != UserRole.Lawyer)
-            return Result<Guid>.Fail("Only a lawyer or admin can review property documents.");
+            return Result<Guid>.Forbid("Only a lawyer or admin can review property documents.");
 
         if (actor.Id != current.Value)
             return Result<Guid>.Fail("Only the assigned lawyer can review this property's documents.");

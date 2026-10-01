@@ -32,7 +32,7 @@ public class RequestRescheduleCommandHandler(
         if (lease.TenantUserId != user.Id)
         {
             logger.LogInformation("User {userId} is not the tenant of lease {leaseId}", user.Id, request.LeaseId);
-            return Result.Fail("Only the tenant on this lease can request a reschedule");
+            return Result.Forbid("Only the tenant on this lease can request a reschedule");
         }
 
         var result = lease.RequestReschedule(user.Id, request.NewDate, request.Note);

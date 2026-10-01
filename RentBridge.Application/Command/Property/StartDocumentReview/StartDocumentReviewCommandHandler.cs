@@ -28,7 +28,7 @@ public class StartDocumentReviewCommandHandler(
         if (user.Role is not (UserRole.Lawyer or UserRole.Admin))
         {
             logger.LogInformation("User {userId} is not authorized to review documents", user.Id);
-            return Result.Fail("Only a lawyer or admin can submit documents for review.");
+            return Result.Forbid("Only a lawyer or admin can submit documents for review.");
         }
 
         var property = await unitOfWork.Repository<PropertyAggregate>().FirstOrDefault(p => p.Id == request.PropertyId, cancellationToken);

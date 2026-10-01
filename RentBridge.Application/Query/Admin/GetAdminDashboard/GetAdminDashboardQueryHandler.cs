@@ -31,7 +31,7 @@ public sealed class GetAdminDashboardQueryHandler(
         if (actor.Role != UserRole.Admin)
         {
             logger.LogInformation("User {UserId} attempted to view the admin dashboard without admin role", actor.Id);
-            return Result<AdminDashboardResponse>.Fail("Only an admin can view the dashboard.");
+            return Result<AdminDashboardResponse>.Forbid("Only an admin can view the dashboard.");
         }
 
         var users = unitOfWork.Repository<UserAggregate>();
