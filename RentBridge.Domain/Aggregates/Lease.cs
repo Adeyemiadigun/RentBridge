@@ -261,6 +261,9 @@ public class Lease : Entity<Guid>
         if (Agreement.IsCertified)
             return Result.Fail("Cannot change the assigned lawyer after the agreement is certified.");
 
+        if (AssignedLawyerId == lawyerId)
+            return Result.Ok();
+
         AssignedLawyerId = lawyerId;
         Raise(new LawyerAssigned(Id, lawyerId));
         return Result.Ok();

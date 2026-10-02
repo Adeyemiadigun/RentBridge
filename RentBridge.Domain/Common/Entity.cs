@@ -11,6 +11,6 @@ namespace RentBridge.Domain.Common
         private readonly List<IDomainEvent> _domainEvents = new();
         public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents;
         protected void Raise(IDomainEvent e) => _domainEvents.Add(e);
-        internal void ClearDomainEvents() => _domainEvents.Clear();
+        public void ClearDomainEvents() => _domainEvents.Clear();
     }
 }

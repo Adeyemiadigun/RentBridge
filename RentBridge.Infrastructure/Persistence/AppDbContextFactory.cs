@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace RentBridge.Infrastructure.Persistence;
 
@@ -30,7 +31,7 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
             .UseNpgsql(connectionString)
             .Options;
 
-        return new AppDbContext(options, mediator: null!);
+        return new AppDbContext(options, mediator: null!, NullLogger<AppDbContext>.Instance);
     }
 
     /// <summary>
