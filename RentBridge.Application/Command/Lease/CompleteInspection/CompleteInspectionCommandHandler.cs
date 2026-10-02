@@ -11,7 +11,6 @@ namespace RentBridge.Application.Command.Lease;
 public sealed class CompleteInspectionCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
-    IEscrowReleaseService releaseService,
     ILogger<CompleteInspectionCommandHandler> logger)
     : IRequestHandler<CompleteInspectionCommand, Result<LeaseTransitionResponse>>
 {
@@ -53,10 +52,9 @@ public sealed class CompleteInspectionCommandHandler(
         logger.LogInformation(
             "Inspection completed for lease {leaseId} on {actualDate}", request.LeaseId, request.ActualDate);
 
-        // Completing the inspection is the second of three release gates. If
-        // escrow is already funded and this was the last one, the payout runs
-        // now — this is the trigger point that matters.
-        await releaseService.TryAutoReleaseAsync(lease.Id, cancellationToken);
+        // No escrow-release attempt here. The inspection gate is now stamped, but
+        // release requires all three gates AND funded escrow; money only moves from
+        // the funding-success webhook, with the reconciliation job as the backstop.
 
         return Result<LeaseTransitionResponse>.Ok(
             new LeaseTransitionResponse(lease.Id, lease.Status.ToString()));

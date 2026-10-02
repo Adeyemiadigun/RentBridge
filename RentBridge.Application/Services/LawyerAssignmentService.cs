@@ -45,7 +45,7 @@ public class LawyerAssignmentService(
     {
         var current = property.VerificationLawyerId;
 
-        if (current is null || !await IsAssignedLawyerVerifiedAsync(current.Value, ct))
+        if (current is null || !await IsVerifiedLawyerAsync(current.Value, ct))
         {
             var picked = await PickNextVerifiedLawyerAsync(ct);
             if (!picked.IsSuccess)
@@ -76,7 +76,8 @@ public class LawyerAssignmentService(
     }
 
 
-  private async Task<bool> IsAssignedLawyerVerifiedAsync(Guid lawyerId, CancellationToken ct)
+  /// <inheritdoc />
+    public async Task<bool> IsVerifiedLawyerAsync(Guid lawyerId, CancellationToken ct)
     {
         var lawyer = await unitOfWork.Repository<User>().FirstOrDefault(u => u.Id == lawyerId, ct);
         return lawyer is { Role: UserRole.Lawyer }

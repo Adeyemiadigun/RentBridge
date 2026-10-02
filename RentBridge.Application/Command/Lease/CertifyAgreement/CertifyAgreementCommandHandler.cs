@@ -13,7 +13,6 @@ public sealed class CertifyAgreementCommandHandler(
     ICurrentUser currentUser,
     ILawyerAssignmentService lawyerService,
     IAgreementDocumentService agreementService,
-    IEscrowReleaseService releaseService,
     ILogger<CertifyAgreementCommandHandler> logger)
     : IRequestHandler<CertifyAgreementCommand, Result>
 {
@@ -55,6 +54,34 @@ public sealed class CertifyAgreementCommandHandler(
             return Result.Fail("No lawyer is assigned to this lease yet.");
         }
 
+        // A lawyer can be suspended or rejected after being assigned, so Verified
+        // must be re-checked here, not only at pick time. Mirrors the property
+        // review path (ResolveAndAuthorizeAsync): re-pick and reassign instead of
+        // dead-ending the lease. There is no lease-reassign endpoint, and
+        // AssignLawyer raises LawyerAssigned, which emails the new lawyer.
+        if (!await lawyerService.IsVerifiedLawyerAsync(lease.AssignedLawyerId.Value, cancellationToken))
+        {
+            var previous = lease.AssignedLawyerId.Value;
+            var picked = await lawyerService.PickNextVerifiedLawyerAsync(cancellationToken);
+            if (!picked.IsSuccess)
+            {
+                logger.LogWarning("Lease {LeaseId} lawyer {LawyerId} is no longer verified and no verified lawyer is available", request.LeaseId, previous);
+                return Result.Fail("The assigned lawyer is no longer verified and no verified lawyer is currently available. Contact an admin.");
+            }
+
+            var reassign = lease.AssignLawyer(picked.Value);
+            if (!reassign.IsSuccess)
+                return Result.Fail(reassign.Error!);
+
+            logger.LogWarning("Reassigned lease {LeaseId} lawyer {Previous} -> {Next}: previous lawyer no longer verified", request.LeaseId, previous, picked.Value);
+
+            // Persist the reassignment even though this request fails, otherwise the
+            // lease stays wedged in LegalReview with no recovery path.
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            return Result.Fail("The previously assigned lawyer is no longer verified. This lease has been reassigned and must be certified by the new assigned lawyer.");
+        }
+
         if (user.Id != lease.AssignedLawyerId)
         {
             logger.LogInformation("User {UserId} is not the assigned lawyer for lease {LeaseId}", user.Id, request.LeaseId);
@@ -70,9 +97,9 @@ public sealed class CertifyAgreementCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Legal review is one of the three release gates; if escrow is already
-        // funded and this was the last gate, the payout runs now.
-        await releaseService.TryAutoReleaseAsync(lease.Id, cancellationToken);
+        // No escrow-release attempt here. Certification closes the legal gate, but
+        // the parties still have to sign and the tenant still has to fund escrow.
+        // Money moves only from the funding-success webhook.
 
         return Result.Ok();
     }

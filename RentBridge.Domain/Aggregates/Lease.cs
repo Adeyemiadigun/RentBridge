@@ -21,8 +21,9 @@ public class Lease : Entity<Guid>
     public LeaseStatus Status { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
-    // gate receipts
-    public DateTimeOffset? IdentityGatePassed { get; private set; }
+    // Per-transaction gate receipts. Tenant identity is deliberately NOT one of
+    // them: it is a fact about the user, not about this lease (see Release),
+    // so it is read from the user row at payout time instead of being copied here.
     public DateTimeOffset? InspectionGatePassed { get; private set; }
     public DateTimeOffset? LegalGatePassed { get; private set; }
 
@@ -127,8 +128,11 @@ public class Lease : Entity<Guid>
     }
 
     /// <summary>
-    /// Records that the inspection physically took place and stamps the
-    /// second of the three escrow release gates. This is the only writer of
+    /// Records that the inspection physically took place and stamps the first
+    /// of the two per-transaction escrow release gates (the second being legal
+    /// review). Tenant identity is the other precondition but is checked live
+    /// from <c>User.IdentityVerified</c> at release time, not stamped here.
+    /// This is the only writer of
     /// <see cref="InspectionGatePassed"/>. Idempotent: a repeat call is a
     /// no-op success rather than an error, so a retried webhook or double tap
     /// cannot fail the request.
@@ -279,13 +283,6 @@ public class Lease : Entity<Guid>
         return Result.Ok();
     }
 
-    public Result RecordIdentityGate()
-    {
-        if (IdentityGatePassed is not null) return Result.Fail("Identity gate already recorded.");
-        IdentityGatePassed = DateTimeOffset.UtcNow;
-        return Result.Ok();
-    }
-
     public Result Certify(Guid certifyingLawyerId)
     {
         if (Status != LeaseStatus.LegalReview) return Result.Fail("Not in legal review.");
@@ -350,13 +347,22 @@ public class Lease : Entity<Guid>
         return Result.Ok();
     }
 
-    public Result Release()
+    /// <summary>
+    /// Finalizes the payout. Requires proof that BOTH parties are identity
+    /// verified, supplied by the caller from the user rows rather than stored on
+    /// this lease: identity is a user-level fact, and re-reading it here means a
+    /// verification revoked between lease creation and payout still blocks the
+    /// release. The landlord is checked too — they are the account receiving the
+    /// money, and a payout account on file is not the same as a verified identity.
+    /// The remaining gates are genuinely per-transaction and stay on the lease.
+    /// </summary>
+    public Result Release(bool tenantIdentityVerified, bool landlordIdentityVerified)
     {
-        if (IdentityGatePassed is null) return Result.Fail("Identity gate not passed.");
+        if (!tenantIdentityVerified) return Result.Fail("Tenant identity is not verified.");
+        if (!landlordIdentityVerified) return Result.Fail("Landlord identity is not verified.");
         if (InspectionGatePassed is null) return Result.Fail("Inspection gate not passed.");
         if (LegalGatePassed is null) return Result.Fail("Legal review gate not passed.");
         if (Status != LeaseStatus.Releasing) return Result.Fail("Escrow must be in releasing state.");
-
         Status = LeaseStatus.Released;
         Raise(new EscrowReleased(Id));
         return Result.Ok();

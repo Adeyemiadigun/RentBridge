@@ -12,13 +12,11 @@ namespace RentBridge.Application.Command.Lease;
 public class ConfirmInspectionCommandHandler(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
-    IEscrowReleaseService releaseService,
     ILogger<ConfirmInspectionCommandHandler> logger)
     : IRequestHandler<ConfirmInspectionCommand, Result<LeaseTransitionResponse>>
 {
     private const int MaxAttempts = 3;
     private const int BaseRetryDelayMs = 100;
-    private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromSeconds(10);
 
     public async Task<Result<LeaseTransitionResponse>> Handle(
         ConfirmInspectionCommand request, CancellationToken cancellationToken)
@@ -93,29 +91,11 @@ public class ConfirmInspectionCommandHandler(
             return Result<LeaseTransitionResponse>.Fail("The lease was modified by another process. Please try again.");
         }
 
-        // Inspection is one of the three release gates; if escrow is already
-        // funded and this was the last gate, the payout runs now.
-        // Run with a short timeout so a slow payment provider never blocks the confirmation response.
-        // If the auto-release fails or times out, the reconciliation job will retry it later.
-        _ = Task.Run(async () =>
-        {
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(ReleaseTimeout);
-            try
-            {
-                await releaseService.TryAutoReleaseAsync(leaseId.Value, cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                logger.LogWarning("Auto-release timed out after {Timeout}s for lease {LeaseId}; will be retried by reconciliation job",
-                    ReleaseTimeout.TotalSeconds, leaseId.Value);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Auto-release failed for lease {LeaseId}; will be retried by reconciliation job", leaseId.Value);
-            }
-        });
-
+        // No escrow-release attempt here. Confirmation is a mid-flow step: the
+        // agreement is not certified, the parties have not signed, and escrow is
+        // not funded, so there is nothing releasable. Release is driven solely by
+        // the funding-success webhook (money received + all three gates passed),
+        // with the reconciliation job as the backstop.
         return Result<LeaseTransitionResponse>.Ok(
             new LeaseTransitionResponse(leaseId.Value, newStatus));
     }

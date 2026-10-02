@@ -53,9 +53,33 @@ public sealed class EscrowReleaseService(
             return Result.Ok();
         }
 
-        // Not releasable until every gate is stamped. If a gate is still open,
-        // the trigger that closes it (or a later funding event) will re-attempt.
-        if (lease.IdentityGatePassed is null || lease.InspectionGatePassed is null || lease.LegalGatePassed is null)
+        // Both parties' identity is a user-level fact and is deliberately NOT
+        // stored on the lease, so it is read here — at the moment money would move
+        // — rather than copied at lease creation. That also means a verification
+        // revoked between creation and payout still blocks the release. The
+        // landlord is included because they receive the money; a registered payout
+        // account is not the same thing as a verified identity. A missing user row
+        // reads as not-verified, which fails safe.
+        var tenantVerified = await unitOfWork.Repository<UserAggregate>()
+            .AnyAsync(u => u.Id == lease.TenantUserId && u.IdentityVerified, cancellationToken);
+        var landlordVerified = await unitOfWork.Repository<UserAggregate>()
+            .AnyAsync(u => u.Id == lease.LandlordUserId && u.IdentityVerified, cancellationToken);
+
+        if (!tenantVerified)
+        {
+            logger.LogInformation("Auto-release skipped for lease {LeaseId}: tenant identity not verified", leaseId);
+            return Result.Ok();
+        }
+
+        if (!landlordVerified)
+        {
+            logger.LogInformation("Auto-release skipped for lease {LeaseId}: landlord identity not verified", leaseId);
+            return Result.Ok();
+        }
+
+        // The remaining gates are genuinely per-transaction and live on the lease.
+        // If one is still open the bounded retry job will re-attempt.
+        if (lease.InspectionGatePassed is null || lease.LegalGatePassed is null)
         {
             return Result.Ok();
         }
@@ -143,7 +167,7 @@ public sealed class EscrowReleaseService(
         // it does we can finalize immediately, otherwise wait for transfer.success.
         if (string.Equals(transfer.Value.Status, "success", StringComparison.OrdinalIgnoreCase))
         {
-            var released = lease.Release();
+            var released = lease.Release(tenantVerified, landlordVerified);
             if (!released.IsSuccess)
             {
                 return Result.Fail(released.Error!);
@@ -239,6 +263,14 @@ public sealed class EscrowReleaseService(
             switch (lookup.Value.Status?.ToLowerInvariant())
             {
                 case "success":
+                    // Re-read both parties' verification at finalize time: identity is
+                    // no longer a lease receipt, and a verification revoked since the
+                    // payout was claimed must stop the release here.
+                    var tenantVerified = await unitOfWork.Repository<UserAggregate>()
+                        .AnyAsync(u => u.Id == lease.TenantUserId && u.IdentityVerified, cancellationToken);
+                    var landlordVerified = await unitOfWork.Repository<UserAggregate>()
+                        .AnyAsync(u => u.Id == lease.LandlordUserId && u.IdentityVerified, cancellationToken);
+
                     if (lease.Status == LeaseStatus.FundedInEscrow)
                     {
                         var begin = lease.BeginRelease();
@@ -249,7 +281,7 @@ public sealed class EscrowReleaseService(
                         }
                     }
 
-                    var released = lease.Release();
+                    var released = lease.Release(tenantVerified, landlordVerified);
                     if (!released.IsSuccess)
                     {
                         logger.LogWarning("Cannot release while reconciling lease {LeaseId}: {Error}", lease.Id, released.Error);

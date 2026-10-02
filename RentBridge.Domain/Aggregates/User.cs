@@ -14,6 +14,10 @@ public class User : Entity<Guid>
     public UserRole Role { get; private set; }
     public bool IdentityVerified { get; private set; }
     public Guid? KycVerificationId { get; private set; }
+    /// <summary>When the current verification succeeded. Retained as the audit
+    /// trail for "was this tenant verified when that lease funded?" now that the
+    /// lease no longer stores its own identity gate receipt.</summary>
+    public DateTimeOffset? IdentityVerifiedAt { get; private set; }
     public string PasswordHash { get; private set; }
     public string PasswordSalt { get; private set; }
     public LawyerProfile? LawyerProfile { get; private set; }
@@ -36,6 +40,7 @@ public class User : Entity<Guid>
     {
         KycVerificationId = kycId;
         IdentityVerified = true;
+        IdentityVerifiedAt = DateTimeOffset.UtcNow;
     }
 
     public void SetPassword(string passwordHash, string passwordSalt)

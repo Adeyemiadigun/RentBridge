@@ -7,6 +7,7 @@ using RentBridge.Domain.Common;
 using RentBridge.Domain.Entities;
 using RentBridge.Domain.Enums;
 using LeaseAggregate = RentBridge.Domain.Aggregates.Lease;
+using UserAggregate = RentBridge.Domain.Aggregates.User;
 
 namespace RentBridge.Application.Command.Payments;
 
@@ -88,8 +89,10 @@ public sealed class HandlePaymentWebhookCommandHandler(
         await unitOfWork.SaveChangesAsync(cancellationToken);
         logger.LogInformation("Escrow payment {Reference} confirmed paid", notification.Reference);
 
-        // Automatic payout: pays out now if every gate has already passed,
-        // otherwise a later gate/funding trigger completes it.
+        // The single automatic payout trigger: money is now confirmed received.
+        // If every gate has already passed the payout runs immediately; otherwise
+        // the bounded retry job (RetryAutoReleaseAsync) picks it up. No other
+        // flow step triggers a payout.
         var release = await releaseService.TryAutoReleaseAsync(lease.Id, cancellationToken);
         if (!release.IsSuccess)
         {
@@ -118,7 +121,14 @@ public sealed class HandlePaymentWebhookCommandHandler(
             return Result.Ok();
         }
 
-        var released = lease.Release();
+        // Both parties' identity is a user-level fact read at finalize time, not a
+        // lease receipt. A missing user row reads as not-verified and fails safe.
+        var tenantVerified = await unitOfWork.Repository<UserAggregate>()
+            .AnyAsync(u => u.Id == lease.TenantUserId && u.IdentityVerified, cancellationToken);
+        var landlordVerified = await unitOfWork.Repository<UserAggregate>()
+            .AnyAsync(u => u.Id == lease.LandlordUserId && u.IdentityVerified, cancellationToken);
+
+        var released = lease.Release(tenantVerified, landlordVerified);
         if (!released.IsSuccess)
         {
             logger.LogWarning("Cannot release lease {LeaseId}: {Error}", lease.Id, released.Error);
