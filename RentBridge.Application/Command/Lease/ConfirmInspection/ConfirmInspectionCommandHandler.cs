@@ -18,6 +18,7 @@ public class ConfirmInspectionCommandHandler(
 {
     private const int MaxAttempts = 3;
     private const int BaseRetryDelayMs = 100;
+    private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromSeconds(10);
 
     public async Task<Result<LeaseTransitionResponse>> Handle(
         ConfirmInspectionCommand request, CancellationToken cancellationToken)
@@ -94,7 +95,26 @@ public class ConfirmInspectionCommandHandler(
 
         // Inspection is one of the three release gates; if escrow is already
         // funded and this was the last gate, the payout runs now.
-        await releaseService.TryAutoReleaseAsync(leaseId.Value, cancellationToken);
+        // Run with a short timeout so a slow payment provider never blocks the confirmation response.
+        // If the auto-release fails or times out, the reconciliation job will retry it later.
+        _ = Task.Run(async () =>
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(ReleaseTimeout);
+            try
+            {
+                await releaseService.TryAutoReleaseAsync(leaseId.Value, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                logger.LogWarning("Auto-release timed out after {Timeout}s for lease {LeaseId}; will be retried by reconciliation job",
+                    ReleaseTimeout.TotalSeconds, leaseId.Value);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Auto-release failed for lease {LeaseId}; will be retried by reconciliation job", leaseId.Value);
+            }
+        });
 
         return Result<LeaseTransitionResponse>.Ok(
             new LeaseTransitionResponse(leaseId.Value, newStatus));
