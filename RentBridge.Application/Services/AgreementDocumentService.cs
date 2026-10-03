@@ -77,7 +77,14 @@ public sealed class AgreementDocumentService(
             Encoding.UTF8.GetBytes(json)));
 
         var version = (lease.Agreement.Document?.Version ?? 0) + 1;
-        var document = new AgreementDocument(lease.Agreement.Id, version, json, hash);
+
+        // The FK on agreement_documents points at leases.Id (see migration
+        // FK_agreement_documents_leases_AgreementId), NOT at Agreement.Id. Agreement
+        // is owned by the lease and keeps its own surrogate key in leases.Agreement_Id,
+        // so passing Agreement.Id wrote a value that never matches the loader's
+        // "AgreementId" = lease.Id join — the document then always read back as null
+        // and EF tried to UPDATE a row that was never inserted.
+        var document = new AgreementDocument(lease.Id, version, json, hash);
 
         var set = lease.Agreement.SetDocument(document);
         if (!set.IsSuccess)

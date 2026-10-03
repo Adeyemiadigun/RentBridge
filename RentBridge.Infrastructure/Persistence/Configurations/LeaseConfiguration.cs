@@ -57,6 +57,13 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
                 d.WithOwner().HasForeignKey("AgreementId");
                 d.HasKey(d => d.Id);
 
+                // The domain assigns Id (Guid.NewGuid) in the constructor. Without
+                // ValueGeneratedNever EF treats a non-default Guid as store-generated,
+                // assumes the row already exists and emits UPDATE instead of INSERT —
+                // which matched 0 rows on the first compose. See
+                // FK_agreement_documents_leases_AgreementId: AgreementId is leases.Id.
+                d.Property(x => x.Id).ValueGeneratedNever();
+
                 d.Property(x => x.Version).HasColumnName("version");
                 d.Property(x => x.TermsJson).HasColumnName("terms_json").HasColumnType("text").IsRequired();
                 d.Property(x => x.ContentHash).HasColumnName("content_hash").HasMaxLength(128).IsRequired();

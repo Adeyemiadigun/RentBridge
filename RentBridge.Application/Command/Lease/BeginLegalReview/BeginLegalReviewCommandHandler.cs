@@ -54,15 +54,8 @@ public sealed class BeginLegalReviewCommandHandler(
                     return Result.Forbid("Only the tenant, landlord, lawyer, or admin can begin legal review.");
                 }
 
-                var composed = await agreementService.EnsureComposedAsync(lease, cancellationToken);
-                if (!composed.IsSuccess)
-                {
-                    logger.LogWarning("Cannot compose agreement for lease {LeaseId}: {Error}", request.LeaseId, composed.Error);
-                    return Result.Fail(composed.Error!);
-                }
-
-                // Assign a lawyer if none is on the lease yet (lazy pick). AssignLawyer
-                // no longer advances the status, so the transition below always runs.
+                // Assign a lawyer BEFORE composing: BuildTerms reads AssignedLawyerId,
+                // so composing first drafted an agreement naming no lawyer at all.
                 if (lease.AssignedLawyerId is null)
                 {
                     var picked = await lawyerService.PickNextVerifiedLawyerAsync(cancellationToken);
@@ -80,6 +73,13 @@ public sealed class BeginLegalReviewCommandHandler(
                             request.LeaseId, picked.Value, assign.Error);
                         return Result.Fail(assign.Error!);
                     }
+                }
+
+                var composed = await agreementService.EnsureComposedAsync(lease, cancellationToken);
+                if (!composed.IsSuccess)
+                {
+                    logger.LogWarning("Cannot compose agreement for lease {LeaseId}: {Error}", request.LeaseId, composed.Error);
+                    return Result.Fail(composed.Error!);
                 }
 
                 var begin = lease.BeginLegalReview();
