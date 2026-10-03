@@ -20,4 +20,22 @@ public interface ILeaseRepository
     Task<Lease?> GetWithInspectionRequestsAsync(
         Guid leaseId,
         CancellationToken ct);
+
+    /// <summary>
+    /// Gets a tracked lease with the Agreement.Signatures and EscrowPayments
+    /// collections loaded. Escrow settlement decisions read Agreement.IsFullySigned
+    /// and the payment's status, and EF leaves owned collections empty unless they
+    /// are explicitly loaded, so the payment path must use this loader.
+    /// </summary>
+    Task<Lease?> GetForEscrowSettlementAsync(
+        Guid leaseId,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Resolves a lease from an escrow payment reference (funding or payout) with the
+    /// Agreement.Signatures and EscrowPayments collections loaded.
+    /// </summary>
+    Task<Lease?> GetForEscrowSettlementByReferenceAsync(
+        string reference,
+        CancellationToken ct);
 }

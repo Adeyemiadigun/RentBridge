@@ -309,7 +309,12 @@ public class Lease : Entity<Guid>
 
     public Result Sign(LeaseParty party, SignatureRecord signature)
     {
-        if (Status != LeaseStatus.Certified) return Result.Fail("Agreement must be certified before signing.");
+        // Signing is allowed from Certified (first signature) or PartiallySigned
+        // (second signature). Previously only Certified was accepted, but this method
+        // itself moves the lease to PartiallySigned after the first signature — so
+        // the second party was locked out and a lease could never reach FullySigned.
+        if (Status is not (LeaseStatus.Certified or LeaseStatus.PartiallySigned))
+            return Result.Fail("Agreement must be certified before signing.");
 
         var result = Agreement.AddSignature(party, signature);
         if (!result.IsSuccess) return result;

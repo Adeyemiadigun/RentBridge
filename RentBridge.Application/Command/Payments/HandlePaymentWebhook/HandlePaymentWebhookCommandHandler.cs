@@ -31,12 +31,9 @@ public sealed class HandlePaymentWebhookCommandHandler(
 
         // Charge events carry the charge reference; transfer events carry the payout
         // reference (which is derived from it), so match either.
-        var lease = await unitOfWork.Repository<LeaseAggregate>()
-            .FirstOrDefault(
-                l => l.EscrowPayments.Any(p =>
-                    p.Reference == notification.Reference || p.PayoutReference == notification.Reference),
-                cancellationToken);
-        if (lease is null)
+        var lease = await unitOfWork.Leases.GetForEscrowSettlementByReferenceAsync(
+            notification.Reference,
+            cancellationToken);        if (lease is null)
         {
             logger.LogWarning("Payment webhook for unknown reference {Reference}", notification.Reference);
             return Result.Ok();

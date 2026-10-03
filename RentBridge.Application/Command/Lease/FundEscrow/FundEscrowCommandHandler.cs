@@ -32,8 +32,7 @@ public sealed class FundEscrowCommandHandler(
         }
         var tenant = res.Value;
 
-        var lease = await unitOfWork.Repository<LeaseAggregate>()
-            .FirstOrDefault(l => l.Id == request.LeaseId, cancellationToken);
+        var lease = await unitOfWork.Leases.GetForEscrowSettlementAsync(request.LeaseId, cancellationToken);
         if (lease is null)
         {
             logger.LogInformation("Lease {LeaseId} not found", request.LeaseId);
@@ -44,6 +43,23 @@ public sealed class FundEscrowCommandHandler(
         {
             logger.LogInformation("User {UserId} tried to fund escrow on a lease they do not tenant", tenant.Id);
             return Result<FundEscrowResponse>.Forbid("Only the tenant on this lease can fund escrow.");
+        }
+
+        // Both signatures are required BEFORE a checkout link is created, not just
+        // before the money is accepted. RecordFunding also enforces this, but that
+        // check runs after Paystack confirms payment — by then the tenant's money has
+        // left their account and the webhook is rejected, leaving the payment stuck in
+        // Initialized with no retry path and no way for the tenant to re-initiate
+        // (the idempotent re-entry below would just hand back the same dead link).
+        // Failing here keeps a doomed payment from ever being opened.
+        if (!lease.Agreement.IsFullySigned)
+        {
+            logger.LogInformation(
+                "Tenant {UserId} attempted to fund escrow on lease {LeaseId} before both parties signed",
+                tenant.Id,
+                request.LeaseId);
+            return Result<FundEscrowResponse>.Fail(
+                "Both you and the landlord must sign the agreement before payment can be made.");
         }
 
         // Idempotent re-entry: return the existing initialized checkout.
