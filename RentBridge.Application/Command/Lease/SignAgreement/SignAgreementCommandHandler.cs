@@ -54,7 +54,14 @@ public sealed class SignAgreementCommandHandler(
         var sign = lease.Sign(party, signature);
         if (!sign.IsSuccess)
         {
-            logger.LogInformation("Lease {LeaseId} cannot be signed by {Party}: {Error}", request.LeaseId, party, sign.Error);
+            logger.LogWarning(
+                "Lease {LeaseId} cannot be signed by {Party}: {Error}. LeaseStatus={LeaseStatus}, LoadedSignatures={SignatureCount}, SignatureParties={SignatureParties}",
+                request.LeaseId,
+                party,
+                sign.Error,
+                lease.Status,
+                lease.Agreement.Signatures.Count,
+                string.Join(",", lease.Agreement.Signatures.Select(s => s.Party)));
             return Result.Fail(sign.Error!);
         }
 
