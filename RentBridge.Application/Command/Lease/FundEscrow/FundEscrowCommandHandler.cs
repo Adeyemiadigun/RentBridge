@@ -106,7 +106,12 @@ public sealed class FundEscrowCommandHandler(
         }
         var settings = settingsRes.Value;
 
-        var gross = listing.Price;
+        // listing.Price is an EF-tracked owned Money belonging to the tracked Listing.
+        // Handing that same instance to the new EscrowPayment gives one value object
+        // two owners, so EF drops the second ownership and omits gross_amount /
+        // gross_currency from the INSERT — Postgres then rejects the NULL with
+        // 23502 "null value in column gross_amount". Give the payment its own copy.
+        var gross = listing.Price with { };
         var split = BuildSplit(gross, settings.PlatformCommissionRate, settings.LegalFeeRate);
         if (!split.IsSuccess)
         {
