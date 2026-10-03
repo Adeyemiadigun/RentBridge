@@ -102,9 +102,24 @@ public sealed class BeginLegalReviewCommandHandler(
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                logger.LogError(ex,
-                    "Concurrency conflict beginning legal review for lease {LeaseId} after {max} attempts",
-                    request.LeaseId, MaxAttempts);
+                // Name the entity/table that matched 0 rows. Without this the
+                // message is indistinguishable from a genuine lost-update race.
+                foreach (var entry in ex.Entries)
+                {
+                    var key = entry.Properties
+                        .Where(p => p.Metadata.IsPrimaryKey())
+                        .Select(p => $"{p.Metadata.Name}={p.CurrentValue}")
+                        .ToArray();
+                    logger.LogError(
+                        ex,
+                        "Concurrency conflict on entity {Entity} [{Keys}] for lease {LeaseId} after {max} attempts. State: {State}",
+                        entry.Metadata.ClrType.Name,
+                        string.Join(", ", key),
+                        request.LeaseId,
+                        MaxAttempts,
+                        entry.State);
+                }
+
                 return Result.Fail("The lease was modified by another process. Please try again.");
             }
         }
