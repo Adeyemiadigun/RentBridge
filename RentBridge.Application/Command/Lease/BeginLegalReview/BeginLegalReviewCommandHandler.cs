@@ -32,8 +32,14 @@ public sealed class BeginLegalReviewCommandHandler(
         {
             try
             {
-                var lease = await unitOfWork.Repository<LeaseAggregate>()
-                    .FirstOrDefault(l => l.Id == request.LeaseId, cancellationToken);
+                // Must use the dedicated loader: FindAsync resolves the xmin
+                // rowversion correctly and eagerly loads InspectionRequests.
+                // A plain LINQ FirstOrDefault tracks the lease without the
+                // owned-entity graph, so the save that follows updates 0 rows
+                // and throws. EnsureComposedAsync also reads that collection
+                // to stamp the inspection date into the agreement terms.
+                var lease = await unitOfWork.Leases
+                    .GetWithInspectionRequestsAsync(request.LeaseId, cancellationToken);
                 if (lease is null)
                 {
                     logger.LogInformation("Lease {LeaseId} not found", request.LeaseId);
