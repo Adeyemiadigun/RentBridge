@@ -33,7 +33,7 @@ public sealed class AgreementPdfRenderer : IAgreementPdfRenderer
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.DefaultTextStyle(t => t.FontFamily("Arial").FontSize(11).LineHeight(1.35f));
+                page.DefaultTextStyle(t => t.FontFamily("Lato").FontSize(11).LineHeight(1.35f));
 
                 page.Header().Column(c =>
                 {
