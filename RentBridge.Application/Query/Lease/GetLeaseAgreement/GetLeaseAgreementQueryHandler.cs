@@ -26,8 +26,9 @@ public sealed class GetLeaseAgreementQueryHandler(
         }
         var user = res.Value;
 
-        var lease = await unitOfWork.Repository<LeaseAggregate>()
-            .FirstOrDefault(l => l.Id == request.LeaseId, cancellationToken);
+        // Must use the graph loader: the response maps Agreement.Signatures, which EF
+        // leaves empty on a bare query.
+        var lease = await unitOfWork.Leases.GetWithAgreementGraphAsync(request.LeaseId, cancellationToken);
         if (lease is null)
         {
             logger.LogInformation("Lease {LeaseId} not found", request.LeaseId);

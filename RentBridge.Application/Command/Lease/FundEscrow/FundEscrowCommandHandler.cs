@@ -32,7 +32,7 @@ public sealed class FundEscrowCommandHandler(
         }
         var tenant = res.Value;
 
-        var lease = await unitOfWork.Leases.GetForEscrowSettlementAsync(request.LeaseId, cancellationToken);
+        var lease = await unitOfWork.Leases.GetWithAgreementGraphAsync(request.LeaseId, cancellationToken);
         if (lease is null)
         {
             logger.LogInformation("Lease {LeaseId} not found", request.LeaseId);

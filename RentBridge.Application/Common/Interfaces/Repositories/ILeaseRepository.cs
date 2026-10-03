@@ -27,7 +27,7 @@ public interface ILeaseRepository
     /// and the payment's status, and EF leaves owned collections empty unless they
     /// are explicitly loaded, so the payment path must use this loader.
     /// </summary>
-    Task<Lease?> GetForEscrowSettlementAsync(
+    Task<Lease?> GetWithAgreementGraphAsync(
         Guid leaseId,
         CancellationToken ct);
 

@@ -24,8 +24,10 @@ public sealed class GetLeaseQueryHandler(
         }
         var user = res.Value;
 
-        var lease = await unitOfWork.Repository<LeaseAggregate>()
-            .FirstOrDefault(l => l.Id == request.LeaseId, cancellationToken);
+        // Must use the graph loader, not a bare query: this handler maps the
+        // signatures, the document and the escrow payments, and EF leaves all three
+        // empty unless they are explicitly loaded.
+        var lease = await unitOfWork.Leases.GetWithAgreementGraphAsync(request.LeaseId, cancellationToken);
         if (lease is null)
         {
             logger.LogInformation("Lease {LeaseId} not found", request.LeaseId);
@@ -39,6 +41,18 @@ public sealed class GetLeaseQueryHandler(
         {
             logger.LogInformation("User {UserId} does not have access to lease {LeaseId}", user.Id, request.LeaseId);
             return Result<LeaseDetailResponse>.Fail("You do not have access to this lease.");
+        }
+
+        // Cheap canary for the failure mode where an owned collection comes back
+        // empty: a lease whose status claims signatures are in progress but which
+        // reports none means a loader regressed, not that the user did nothing.
+        if (lease.Status is LeaseStatus.Certified or LeaseStatus.PartiallySigned or LeaseStatus.FullySigned
+            && lease.Agreement.Signatures.Count == 0)
+        {
+            logger.LogWarning(
+                "Lease {LeaseId} is {Status} but loaded with zero signatures — an owned collection was not loaded",
+                lease.Id,
+                lease.Status);
         }
 
         var detail = new LeaseDetailResponse(

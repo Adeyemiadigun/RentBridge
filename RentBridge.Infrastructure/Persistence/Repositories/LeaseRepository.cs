@@ -27,21 +27,23 @@ public class LeaseRepository : ILeaseRepository
     }
 
     /// <summary>
-    /// Loads a tracked lease with the collections the escrow release path depends on:
-    /// the agreement signatures and the escrow payments.
+    /// Loads a tracked lease with every owned/related collection that the agreement
+    /// and escrow paths read: the agreement signatures, the agreement document, and
+    /// the escrow payments.
     ///
-    /// Signatures live in their own table via OwnsMany, and EF never loads an owned
-    /// collection unless it is explicitly asked to. A bare FirstOrDefault therefore
-    /// returns an Agreement whose _signatures collection is EMPTY, which made
-    /// Agreement.IsFullySigned report false even after both parties had signed — so
-    /// RecordFunding rejected every payment webhook and escrow could never be funded.
-    /// The payment path must go through here.
+    /// None of these load unless EF is explicitly told to. Signatures and the document
+    /// are owned types and EscrowPayments is a related collection, so a bare
+    /// FirstOrDefault hands back an entity whose collections are all EMPTY and whose
+    /// document is null — silently, with no error. That made GET /leases/{id} report
+    /// isFullySigned=false and zero signatures even after both parties had signed,
+    /// which made the UI try to sign a third time and the escrow path reject a
+    /// legitimate payment. Anything mapping a Lease to a DTO must use this.
     ///
     /// FindAsync is used rather than a query so shadow properties (Version/xmin) are
     /// materialised; a plain query would leave them at CLR default and break the
     /// optimistic-concurrency check on save.
     /// </summary>
-    public async Task<Lease?> GetForEscrowSettlementAsync(
+    public async Task<Lease?> GetWithAgreementGraphAsync(
         Guid leaseId,
         CancellationToken ct)
     {
@@ -50,11 +52,12 @@ public class LeaseRepository : ILeaseRepository
             return null;
 
         // Agreement is itself an owned reference on Lease; reach its entry before
-        // loading the signatures collection that hangs off it.
+        // loading what hangs off it.
         var agreementEntry = _context.Entry(entity).Reference(l => l.Agreement).TargetEntry;
         if (agreementEntry is not null)
         {
             await agreementEntry.Collection(a => a.Signatures).LoadAsync(ct);
+            await agreementEntry.Reference(a => a.Document).LoadAsync(ct);
         }
 
         await _context.Entry(entity).Collection(l => l.EscrowPayments).LoadAsync(ct);
@@ -63,7 +66,7 @@ public class LeaseRepository : ILeaseRepository
 
     /// <summary>
     /// Resolves a lease from a Paystack reference (either the funding reference or
-    /// the payout reference) and loads it via <see cref="GetForEscrowSettlementAsync"/>.
+    /// the payout reference) and loads it via <see cref="GetWithAgreementGraphAsync"/>.
     /// </summary>
     public async Task<Lease?> GetForEscrowSettlementByReferenceAsync(
         string reference,
@@ -82,7 +85,7 @@ public class LeaseRepository : ILeaseRepository
 
         return leaseId is null
             ? null
-            : await GetForEscrowSettlementAsync(leaseId.Value, ct);
+            : await GetWithAgreementGraphAsync(leaseId.Value, ct);
     }
 
     public async Task<Lease?> GetWithInspectionRequestsAsync(
