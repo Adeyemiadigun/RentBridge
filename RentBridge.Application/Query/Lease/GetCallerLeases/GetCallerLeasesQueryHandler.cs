@@ -43,7 +43,8 @@ public sealed class GetCallerLeasesQueryHandler(
             l => l.CreatedAt,
             ascending: false,
             cancellationToken,
-            l => l.InspectionRequests);
+            l => l.InspectionRequests,
+            l => l.Agreement.Signatures);
 
         var leases = paged.Items;
 
@@ -112,7 +113,8 @@ public sealed class GetCallerLeasesQueryHandler(
                         string.IsNullOrWhiteSpace(r.Note) ? null : r.Note,
                         r.ActualDate,
                         string.IsNullOrWhiteSpace(r.Notes) ? null : r.Notes))
-                    .FirstOrDefault());
+                    .FirstOrDefault(),
+                    l.Agreement.Signatures.Select(s => s.Party).ToList());
         }).ToList();
 
         return Result<PagedResult<LeaseListItem>>.Ok(
