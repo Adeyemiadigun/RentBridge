@@ -106,11 +106,9 @@ public sealed class FundEscrowCommandHandler(
         }
         var settings = settingsRes.Value;
 
-        // listing.Price is an EF-tracked owned Money belonging to the tracked Listing.
-        // Handing that same instance to the new EscrowPayment gives one value object
-        // two owners, so EF drops the second ownership and omits gross_amount /
-        // gross_currency from the INSERT — Postgres then rejects the NULL with
-        // 23502 "null value in column gross_amount". Give the payment its own copy.
+        // listing.Price is an EF-tracked owned Money on the tracked Listing. Give the
+        // payment its own copy so graph traversal does not try to attach one value
+        // object to two owners.
         var gross = listing.Price with { };
         var split = BuildSplit(gross, settings.PlatformCommissionRate, settings.LegalFeeRate);
         if (!split.IsSuccess)
@@ -127,6 +125,7 @@ public sealed class FundEscrowCommandHandler(
             .Where(p => p.Status is EscrowStatus.Failed or EscrowStatus.Pending)
             .OrderByDescending(p => p.CreatedAt)
             .FirstOrDefault();
+        var isNewPayment = payment is null;
 
         if (payment is not null)
         {
@@ -145,13 +144,19 @@ public sealed class FundEscrowCommandHandler(
             {
                 return Result<FundEscrowResponse>.Fail(record.Error!);
             }
+        }
 
+        // Attach the split BEFORE the payment enters the change tracker. EF only
+        // discovers owned navigations that are already set when it walks the graph;
+        // one assigned to an already-tracked entity is never picked up.
+        payment.AttachSplit(split.Value);
+
+        if (isNewPayment)
+        {
             // A brand-new EscrowPayment added to an already-tracked Lease is picked up as
             // Modified, so EF would UPDATE a row that was never inserted.
             unitOfWork.MarkAsAdded(payment);
         }
-
-        payment.AttachSplit(split.Value);
 
         var init = await escrowProvider.InitializeAsync(
             new PaymentInitiationRequest(

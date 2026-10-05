@@ -49,7 +49,12 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
 
         public void MarkAsAdded<T>(T entity) where T : class
         {
-            _context.Entry(entity).State = EntityState.Added;
+            // Must use Add(), not Entry(entity).State = Added. Setting State directly
+            // marks only the root entity and never walks the graph, so owned navigations
+            // are left untracked: EscrowPayment.GrossAmount and .Split then contribute no
+            // columns to the INSERT and Postgres rejects the NULL gross_amount (23502).
+            // Add() traverses and tracks the whole graph.
+            _context.Add(entity);
         }
 
         public void ClearChangeTracker()
