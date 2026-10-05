@@ -236,13 +236,26 @@ app.MapControllers();
 
 // Reconciliation sweep: self-heals payouts that were claimed but never finalized
 // (e.g. the process died between the claim and the provider transfer).
+// Registration only upserts the schedule Hangfire already stores in its tables, so a
+// lock timeout here must not take the API down. During a rolling deploy the outgoing
+// instance can still hold this lock, and the previously stored schedule keeps firing.
 using (var scope = app.Services.CreateScope())
 {
     var dispatcher = scope.ServiceProvider.GetRequiredService<IBackgroundJobDispatcher>();
-    dispatcher.AddOrUpdateRecurring<IEscrowReleaseService>(
-        "escrow-payout-reconciliation",
-        s => s.ReconcileStuckPayoutsAsync(),
-        "*/10 * * * *");
+    try
+    {
+        dispatcher.AddOrUpdateRecurring<IEscrowReleaseService>(
+            "escrow-payout-reconciliation",
+            s => s.ReconcileStuckPayoutsAsync(),
+            "*/10 * * * *");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(
+            ex,
+            "Could not refresh the escrow-payout-reconciliation schedule on startup; " +
+            "the existing Hangfire schedule stays active.");
+    }
 }
 
 app.Run();
