@@ -58,4 +58,19 @@ public interface ILeaseRepository
     Task<IReadOnlyList<Lease>> GetByListingIdsWithEscrowPaymentsAsync(
         IReadOnlyCollection<Guid> listingIds,
         CancellationToken ct);
+
+    /// <summary>
+    /// Ids of leases whose listing (and therefore whose property) no longer exists.
+    /// Ids only, so a maintenance sweep can size the damage before hydrating anything.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetIdsWithoutLiveListingAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Loads leases by id, tracked and with every owned collection populated, so a
+    /// caller can inspect escrow state and delete them. Works even when the parent
+    /// listing row is already gone, which a listing-keyed loader cannot do.
+    /// </summary>
+    Task<IReadOnlyList<Lease>> GetTrackedByIdsWithGraphAsync(
+        IReadOnlyCollection<Guid> leaseIds,
+        CancellationToken ct);
 }

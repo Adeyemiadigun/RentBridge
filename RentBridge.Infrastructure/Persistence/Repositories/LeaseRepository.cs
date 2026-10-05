@@ -142,4 +142,40 @@ public class LeaseRepository : ILeaseRepository
             .Where(l => ids.Contains(l.ListingId))
             .ToListAsync(ct);
     }
+
+    public async Task<IReadOnlyList<Guid>> GetIdsWithoutLiveListingAsync(CancellationToken ct)
+    {
+        // "Live" means the listing still resolves to a property, so leases stranded by
+        // either a missing listing or a missing property are both caught.
+        var liveListingIds = _context.Set<Listing>().AsNoTracking()
+            .Join(
+                _context.Set<Property>().AsNoTracking(),
+                l => l.PropertyId,
+                p => p.Id,
+                (l, _) => l.Id);
+
+        return await _context.Set<Lease>().AsNoTracking()
+            .Where(l => !liveListingIds.Contains(l.ListingId))
+            .Select(l => l.Id)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<Lease>> GetTrackedByIdsWithGraphAsync(
+        IReadOnlyCollection<Guid> leaseIds,
+        CancellationToken ct)
+    {
+        if (leaseIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = leaseIds.ToList();
+        return await _context.Set<Lease>()
+            .Include(l => l.EscrowPayments)
+            .Include(l => l.InspectionRequests)
+            .Include(l => l.Agreement).ThenInclude(a => a.Signatures)
+            .Include(l => l.Agreement).ThenInclude(a => a.Document)
+            .Where(l => ids.Contains(l.Id))
+            .ToListAsync(ct);
+    }
 }

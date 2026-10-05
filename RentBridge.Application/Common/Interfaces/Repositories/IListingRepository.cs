@@ -44,4 +44,19 @@ public interface IListingRepository
         int page,
         int pageSize,
         CancellationToken ct);
+
+    /// <summary>
+    /// Ids of listings whose property row no longer exists — the orphans left behind
+    /// before property deletes cascaded. Ids only, so a maintenance sweep can size the
+    /// damage before hydrating anything.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetIdsWithoutLivePropertyAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Loads listings tracked so a caller can delete them; EF then removes the owned
+    /// listing_images rows with them.
+    /// </summary>
+    Task<IReadOnlyList<Listing>> GetTrackedByIdsAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken ct);
 }

@@ -196,4 +196,24 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
 
         return Ok(new { userId = result.Value });
     }
+
+    /// <summary>
+    /// One-off maintenance sweep for listings and leases orphaned before property
+    /// deletes cascaded. Dry run by default; pass execute=true to actually delete.
+    /// Any lease with escrow that moved money, or with ledger lines, is reported and
+    /// kept regardless of execute.
+    /// </summary>
+    [HttpPost("maintenance/purge-orphaned-records")]
+    public async Task<IActionResult> PurgeOrphanedRecords(
+        [FromQuery] bool execute = false,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(new PurgeOrphanedRecordsCommand(execute), ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
+        }
+
+        return Ok(result.Value);
+    }
 }

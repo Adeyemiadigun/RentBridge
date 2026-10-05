@@ -25,5 +25,14 @@ namespace RentBridge.Application.Common.Interfaces.Repositories
             MetricsGranularity granularity,
             Guid? landlordUserId,
             CancellationToken ct);
+
+        /// <summary>
+        /// Returns the distinct lease ids that have at least one ledger line. Used to
+        /// protect financially material records from destructive maintenance: any lease
+        /// that moved money must never be silently purged, even when orphaned.
+        /// </summary>
+        Task<IReadOnlyList<Guid>> GetLeaseIdsWithLedgerEntriesAsync(
+            IReadOnlyCollection<Guid> leaseIds,
+            CancellationToken ct);
     }
 }

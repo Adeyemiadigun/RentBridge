@@ -91,4 +91,22 @@ public class LedgerRepository : ILedgerRepository
                 (int)r.FailedAttempts))
             .ToList();
     }
+
+    public async Task<IReadOnlyList<Guid>> GetLeaseIdsWithLedgerEntriesAsync(
+        IReadOnlyCollection<Guid> leaseIds,
+        CancellationToken ct)
+    {
+        if (leaseIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = leaseIds.ToList();
+        return await _context.Set<LedgerEntry>()
+            .AsNoTracking()
+            .Where(e => ids.Contains(e.LeaseId))
+            .Select(e => e.LeaseId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
 }

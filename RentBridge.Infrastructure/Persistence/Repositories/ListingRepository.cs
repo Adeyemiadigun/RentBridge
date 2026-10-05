@@ -191,4 +191,28 @@ public class ListingRepository : IListingRepository
 
         return (items, totalCount);
     }
+
+    public async Task<IReadOnlyList<Guid>> GetIdsWithoutLivePropertyAsync(CancellationToken ct)
+    {
+        var livePropertyIds = _context.Set<Property>().AsNoTracking().Select(p => p.Id);
+        return await _context.Set<Listing>().AsNoTracking()
+            .Where(l => !livePropertyIds.Contains(l.PropertyId))
+            .Select(l => l.Id)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<Listing>> GetTrackedByIdsAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken ct)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var idList = ids.ToList();
+        return await _context.Set<Listing>()
+            .Where(l => idList.Contains(l.Id))
+            .ToListAsync(ct);
+    }
 }
