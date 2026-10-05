@@ -54,6 +54,19 @@ builder.Services.AddControllers()
     });
 builder.Services.AddOpenApi();
 
+// The hosted web client is served from a different origin than this API, so browser
+// requests to /api/v1 are cross-origin and need an explicit CORS policy. Origins come
+// from configuration so each environment can name its own client without a code change.
+const string CorsPolicyName = "WebClients";
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? Array.Empty<string>();
+builder.Services.AddCors(options => options.AddPolicy(
+    CorsPolicyName,
+    policy => policy
+        .WithOrigins(corsOrigins)
+        .AllowAnyHeader()
+        .AllowAnyMethod()));
+
 // URL-segment versioning: /api/v1/.... Unversioned requests are assumed v1,
 // and clients can also pass ?api-version= or the X-Version header.
 builder.Services.AddApiVersioning(options =>
@@ -205,6 +218,9 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseHttpsRedirection();
+
+// Must run before authentication so preflight requests short-circuit.
+app.UseCors(CorsPolicyName);
 
 app.UseAuthentication();
 app.UseAuthorization();
