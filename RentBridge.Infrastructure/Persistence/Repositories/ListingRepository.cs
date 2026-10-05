@@ -146,4 +146,20 @@ public class ListingRepository : IListingRepository
             u.Email.Value,
             u.IdentityVerified);
     }
+
+    public async Task<IReadOnlyList<GroupCount<ListingStatus>>> CountByStatusWithLivePropertyAsync(
+        CancellationToken ct)
+    {
+        var rows = await _context.Set<Listing>().AsNoTracking()
+            .Join(
+                _context.Set<Property>().AsNoTracking(),
+                listing => listing.PropertyId,
+                property => property.Id,
+                (listing, _) => new { listing.Status })
+            .GroupBy(x => x.Status)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        return rows.Select(r => new GroupCount<ListingStatus>(r.Key, r.Count)).ToList();
+    }
 }

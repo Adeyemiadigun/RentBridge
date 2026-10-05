@@ -5,8 +5,6 @@ using RentBridge.Application.Common.Interfaces.Repositories;
 using RentBridge.Application.Dtos.Dashboard;
 using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
-using LeaseAggregate = RentBridge.Domain.Aggregates.Lease;
-using ListingAggregate = RentBridge.Domain.Aggregates.Listing;
 using UserAggregate = RentBridge.Domain.Aggregates.User;
 
 namespace RentBridge.Application.Query.Admin;
@@ -53,8 +51,11 @@ public sealed class GetAdminDashboardQueryHandler(
                     && u.LawyerProfile.Status == LawyerStatus.Pending,
                 cancellationToken));
 
-        var listings = unitOfWork.Repository<ListingAggregate>();
-        var listingCounts = (await listings.CountByAsync(null, l => l.Status, cancellationToken))
+        var listings = unitOfWork.Listings;
+        // Joins through to properties: deleting a property does not cascade, so
+        // counting the listings table on its own would keep reporting every listing
+        // whose property is gone.
+        var listingCounts = (await listings.CountByStatusWithLivePropertyAsync(cancellationToken))
             .ToDictionary(r => r.Key, r => r.Count);
         var listingSummary = new ListingSummary(
             Total: listingCounts.Values.Sum(),
@@ -63,8 +64,8 @@ public sealed class GetAdminDashboardQueryHandler(
             Unpublished: listingCounts.GetValueOrDefault(ListingStatus.Unpublished),
             Closed: listingCounts.GetValueOrDefault(ListingStatus.Closed));
 
-        var leases = unitOfWork.Repository<LeaseAggregate>();
-        var leaseCounts = (await leases.CountByAsync(null, l => l.Status, cancellationToken))
+        var leases = unitOfWork.Leases;
+        var leaseCounts = (await leases.CountByStatusWithLivePropertyAsync(cancellationToken))
             .ToDictionary(r => r.Key, r => r.Count);
         var leaseSummary = new LeaseSummary(
             Total: leaseCounts.Values.Sum(),

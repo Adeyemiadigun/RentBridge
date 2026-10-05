@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RentBridge.Application.Common;
 using RentBridge.Application.Common.Interfaces.Repositories;
 using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Enums;
@@ -104,5 +105,22 @@ public class LeaseRepository : ILeaseRepository
         var versionVal = _context.Entry(entity).Property("Version").CurrentValue;
         
         return entity;
+    }
+
+    public async Task<IReadOnlyList<GroupCount<LeaseStatus>>> CountByStatusWithLivePropertyAsync(
+        CancellationToken ct)
+    {
+        var rows = await (
+            from lease in _context.Set<Lease>().AsNoTracking()
+            join listing in _context.Set<Listing>().AsNoTracking()
+                on lease.ListingId equals listing.Id
+            join property in _context.Set<Property>().AsNoTracking()
+                on listing.PropertyId equals property.Id
+            group lease by lease.Status
+            into g
+            select new { Key = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        return rows.Select(r => new GroupCount<LeaseStatus>(r.Key, r.Count)).ToList();
     }
 }

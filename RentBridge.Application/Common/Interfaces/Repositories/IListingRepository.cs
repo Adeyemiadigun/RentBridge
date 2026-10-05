@@ -23,4 +23,13 @@ public interface IListingRepository
     /// owning user's details, or null when not found / not published.
     /// </summary>
     Task<ListingDetailItem?> GetDetailAsync(Guid id, CancellationToken ct);
+
+    /// <summary>
+    /// Counts listings grouped by status, skipping any listing whose property has
+    /// been deleted. Deleting a property does not cascade (the Listing.PropertyId
+    /// foreign key is unenforced), so a plain GROUP BY on listings counts those
+    /// orphans forever and the admin KPIs never go down.
+    /// </summary>
+    Task<IReadOnlyList<GroupCount<ListingStatus>>> CountByStatusWithLivePropertyAsync(
+        CancellationToken ct);
 }

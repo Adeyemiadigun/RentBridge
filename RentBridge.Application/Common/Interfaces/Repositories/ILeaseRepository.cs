@@ -1,4 +1,6 @@
+using RentBridge.Application.Common;
 using RentBridge.Domain.Aggregates;
+using RentBridge.Domain.Enums;
 
 namespace RentBridge.Application.Common.Interfaces.Repositories;
 
@@ -37,5 +39,14 @@ public interface ILeaseRepository
     /// </summary>
     Task<Lease?> GetForEscrowSettlementByReferenceAsync(
         string reference,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Counts leases grouped by status, skipping any lease whose property has been
+    /// deleted. The chain Property -> Listing -> Lease has no enforced foreign keys
+    /// and deleting a property does not cascade, so a plain GROUP BY on leases counts
+    /// orphans whose property is gone and inflates the admin KPIs.
+    /// </summary>
+    Task<IReadOnlyList<GroupCount<LeaseStatus>>> CountByStatusWithLivePropertyAsync(
         CancellationToken ct);
 }
