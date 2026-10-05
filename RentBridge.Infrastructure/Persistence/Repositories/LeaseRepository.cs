@@ -123,4 +123,23 @@ public class LeaseRepository : ILeaseRepository
 
         return rows.Select(r => new GroupCount<LeaseStatus>(r.Key, r.Count)).ToList();
     }
+
+    public async Task<IReadOnlyList<Lease>> GetByListingIdsWithEscrowPaymentsAsync(
+        IReadOnlyCollection<Guid> listingIds,
+        CancellationToken ct)
+    {
+        if (listingIds.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = listingIds.ToList();
+        return await _context.Set<Lease>()
+            .Include(l => l.EscrowPayments)
+            .Include(l => l.InspectionRequests)
+            .Include(l => l.Agreement).ThenInclude(a => a.Signatures)
+            .Include(l => l.Agreement).ThenInclude(a => a.Document)
+            .Where(l => ids.Contains(l.ListingId))
+            .ToListAsync(ct);
+    }
 }

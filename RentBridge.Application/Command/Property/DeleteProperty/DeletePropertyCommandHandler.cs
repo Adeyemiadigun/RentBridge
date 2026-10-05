@@ -6,6 +6,8 @@ using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 using PropertyEntity = RentBridge.Domain.Aggregates.Property;
+using ListingEntity = RentBridge.Domain.Aggregates.Listing;
+using LeaseEntity = RentBridge.Domain.Aggregates.Lease;
 
 namespace RentBridge.Application.Command.Property;
 
@@ -61,6 +63,51 @@ public class DeletePropertyCommandHandler(
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to delete document {FileKey} from Cloudinary", document.FileKey);
+            }
+        }
+
+        // Cascade: a property's listings and leases are only reachable through it, and
+        // nothing in the schema enforces that (the PropertyId/ListingId foreign keys are
+        // unenforced), so removing the property alone would leave them behind as permanent
+        // orphans that still show up in listings, leases and the admin KPIs.
+        var listings = await unitOfWork.Repository<ListingEntity>()
+            .FindAsync(l => l.PropertyId == property.Id, cancellationToken);
+
+        if (listings.Count > 0)
+        {
+            var listingIds = listings.Select(l => l.Id).ToList();
+            var leases = await unitOfWork.Leases.GetByListingIdsWithEscrowPaymentsAsync(listingIds, cancellationToken);
+
+            // Escrow that is funded, mid-payout or stuck still represents a real obligation:
+            // the tenant's money is held or the landlord payout has not landed. Deleting the
+            // property would strand that payout trail, so the delete is refused until it settles.
+            var unsettled = leases
+                .SelectMany(l => l.EscrowPayments)
+                .Where(p => p.Status is EscrowStatus.Funded or EscrowStatus.Releasing or EscrowStatus.PayoutFailed)
+                .ToList();
+
+            if (unsettled.Count > 0)
+            {
+                logger.LogInformation(
+                    "Property {PropertyId} delete refused: {Count} escrow payment(s) not yet settled",
+                    property.Id,
+                    unsettled.Count);
+                return Result.Fail(
+                    "This property has an escrow payment that is not settled yet. "
+                    + "Wait for the payout to complete (or contact support) before deleting the property.");
+            }
+
+            // Pre-money leases and settled (Released/Refunded) leases carry no outstanding
+            // obligation. LedgerEntry rows are a separate table and are never removed, so the
+            // transaction history for a paid property survives the delete.
+            foreach (var lease in leases)
+            {
+                unitOfWork.Repository<LeaseEntity>().Remove(lease);
+            }
+
+            foreach (var listing in listings)
+            {
+                unitOfWork.Repository<ListingEntity>().Remove(listing);
             }
         }
 

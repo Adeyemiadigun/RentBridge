@@ -49,4 +49,13 @@ public interface ILeaseRepository
     /// </summary>
     Task<IReadOnlyList<GroupCount<LeaseStatus>>> CountByStatusWithLivePropertyAsync(
         CancellationToken ct);
+
+    /// <summary>
+    /// Loads leases for the given listings with their EscrowPayments collection
+    /// populated and entities tracked, so a caller can inspect escrow settlement
+    /// state and then remove the lease (owned rows are deleted with it).
+    /// </summary>
+    Task<IReadOnlyList<Lease>> GetByListingIdsWithEscrowPaymentsAsync(
+        IReadOnlyCollection<Guid> listingIds,
+        CancellationToken ct);
 }

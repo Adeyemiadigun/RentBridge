@@ -162,4 +162,33 @@ public class ListingRepository : IListingRepository
 
         return rows.Select(r => new GroupCount<ListingStatus>(r.Key, r.Count)).ToList();
     }
+
+    public async Task<(IReadOnlyList<Listing> Items, int TotalCount)> GetLivePagedAsync(
+        ListingStatus? status,
+        int page,
+        int pageSize,
+        CancellationToken ct)
+    {
+        var live = _context.Set<Listing>().AsNoTracking()
+            .Join(
+                _context.Set<Property>().AsNoTracking(),
+                listing => listing.PropertyId,
+                property => property.Id,
+                (listing, _) => listing);
+
+        if (status is not null)
+        {
+            var wanted = status.Value;
+            live = live.Where(listing => listing.Status == wanted);
+        }
+
+        var totalCount = await live.CountAsync(ct);
+        var items = await live
+            .OrderByDescending(listing => listing.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
 }

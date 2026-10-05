@@ -6,7 +6,6 @@ using RentBridge.Application.Common.Interfaces.Repositories;
 using RentBridge.Application.Dtos.Admin;
 using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
-using ListingAggregate = RentBridge.Domain.Aggregates.Listing;
 using PropertyAggregate = RentBridge.Domain.Aggregates.Property;
 using UserAggregate = RentBridge.Domain.Aggregates.User;
 
@@ -35,26 +34,25 @@ public sealed class GetListingsForModerationQueryHandler(
             return Result<PagedResult<ListingModerationItem>>.Forbid("Only an admin can moderate listings.");
         }
 
-        var page = await unitOfWork.Repository<ListingAggregate>().GetPagedAsync(
-            l => (request.Status == null || l.Status == request.Status) && l.PropertyId != Guid.Empty,
+        var live = await unitOfWork.Listings.GetLivePagedAsync(
+            request.Status,
             request.Page,
             request.PageSize,
-            orderBy: l => l.CreatedAt,
-            ascending: false,
-            ct: cancellationToken);
+            cancellationToken);
+        var pageItems = live.Items;
 
         // One batch lookup for the whole page — no per-row queries.
-        var propertyIds = page.Items.Select(l => l.PropertyId).Distinct().ToList();
+        var propertyIds = pageItems.Select(l => l.PropertyId).Distinct().ToList();
         var properties = await unitOfWork.Repository<PropertyAggregate>()
             .FindAsync(p => propertyIds.Contains(p.Id), cancellationToken);
         var propertiesById = properties.ToDictionary(p => p.Id);
 
-        var ownerIds = page.Items.Select(l => l.OwnerUserId).Distinct().ToList();
+        var ownerIds = pageItems.Select(l => l.OwnerUserId).Distinct().ToList();
         var ownerUsers = await unitOfWork.Repository<UserAggregate>()
             .FindAsync(u => ownerIds.Contains(u.Id), cancellationToken);
         var ownersById = ownerUsers.ToDictionary(u => u.Id, u => u);
 
-        var items = page.Items
+        var items = pageItems
             .Where(l => propertiesById.ContainsKey(l.PropertyId))
             .Select(l =>
             {
@@ -85,6 +83,6 @@ public sealed class GetListingsForModerationQueryHandler(
             .ToList();
 
         return Result<PagedResult<ListingModerationItem>>.Ok(
-            new PagedResult<ListingModerationItem>(page.Page, page.PageSize, page.TotalCount, items));
+            new PagedResult<ListingModerationItem>(request.Page, request.PageSize, live.TotalCount, items));
     }
 }
