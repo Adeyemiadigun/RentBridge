@@ -12,6 +12,14 @@ public class ListingConfiguration : IEntityTypeConfiguration<Listing>
         b.ToTable("listings");
         b.HasKey(l => l.Id);
 
+        // A listing is only reachable through its property. Declaring the relationship
+        // makes the database enforce it and cascade, so deleting a property can no
+        // longer strand listings behind (previously this FK did not exist at all).
+        b.HasOne<Property>()
+            .WithMany()
+            .HasForeignKey(l => l.PropertyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         b.HasIndex(l => l.OwnerUserId);
         b.HasIndex(l => l.Status);
 

@@ -16,6 +16,14 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
         b.HasIndex(l => l.LandlordUserId);
         b.HasIndex(l => l.ListingId);
 
+        // A lease is only reachable through its listing. Declaring the relationship
+        // makes the database enforce it and cascade, so deleting a property can no
+        // longer strand leases behind (previously this FK did not exist at all).
+        b.HasOne<Listing>()
+            .WithMany()
+            .HasForeignKey(l => l.ListingId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         b.Property(l => l.LandlordPayoutRecipientCode)
             .HasColumnName("landlord_payout_recipient_code")
             .HasMaxLength(100);
