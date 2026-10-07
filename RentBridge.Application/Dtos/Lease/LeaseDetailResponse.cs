@@ -12,7 +12,9 @@ public sealed record LeaseDetailResponse(
     DateTimeOffset CreatedAt,
     AgreementDetail Agreement,
     AgreementDocumentItem? AgreementDocument,
-    IReadOnlyList<EscrowPaymentItem> EscrowPayments);
+    IReadOnlyList<EscrowPaymentItem> EscrowPayments,
+    decimal? TotalAmount,
+    string? TotalAmountCurrency);
 
 public sealed record AgreementDetail(
     bool IsCertified,
@@ -31,4 +33,6 @@ public sealed record EscrowPaymentItem(
     decimal Amount,
     string Currency,
     EscrowStatus Status,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    decimal? TotalAmount,
+    string? TotalAmountCurrency);

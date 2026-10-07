@@ -55,6 +55,16 @@ public sealed class GetLeaseQueryHandler(
                 lease.Status);
         }
 
+        // Calculate total amount (gross + caution fee + real house fee + agent fee) from the first escrow payment's split
+        decimal? totalAmount = null;
+        string? totalAmountCurrency = null;
+        var firstPayment = lease.EscrowPayments.FirstOrDefault();
+        if (firstPayment is not null && firstPayment.Split is not null)
+        {
+            totalAmount = firstPayment.GrossAmount.Amount;
+            totalAmountCurrency = firstPayment.GrossAmount.Currency;
+        }
+
         var detail = new LeaseDetailResponse(
             lease.Id,
             lease.ListingId,
@@ -84,8 +94,12 @@ public sealed class GetLeaseQueryHandler(
                     p.GrossAmount.Amount,
                     p.GrossAmount.Currency,
                     p.Status,
-                    p.CreatedAt))
-                .ToList());
+                    p.CreatedAt,
+                    p.GrossAmount.Amount, // Total amount (same as gross for now, split is calculated from gross)
+                    p.GrossAmount.Currency))
+                .ToList(),
+            totalAmount,
+            totalAmountCurrency);
 
         return Result<LeaseDetailResponse>.Ok(detail);
     }

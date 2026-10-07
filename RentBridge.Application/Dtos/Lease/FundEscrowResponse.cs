@@ -1,3 +1,3 @@
 namespace RentBridge.Application.Dtos.Lease;
 
-public sealed record FundEscrowResponse(string CheckoutUrl, string Reference, string Status);
+public sealed record FundEscrowResponse(string CheckoutUrl, string Reference, string Status, decimal TotalAmount, string Currency);

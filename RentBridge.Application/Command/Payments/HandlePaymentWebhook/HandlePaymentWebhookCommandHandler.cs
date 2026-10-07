@@ -80,6 +80,13 @@ public sealed class HandlePaymentWebhookCommandHandler(
             return Result.Fail(funded.Error!);
         }
 
+        var confirmed = lease.ConfirmEscrowFunding(payment);
+        if (!confirmed.IsSuccess)
+        {
+            logger.LogWarning("Cannot confirm escrow funding for {Reference}: {Error}", notification.Reference, confirmed.Error);
+            return Result.Fail(confirmed.Error!);
+        }
+
         // Ledger line is staged with the state change and committed in the same save.
         await ledgerService.RecordFundingAsync(lease, payment, cancellationToken);
 

@@ -342,6 +342,30 @@ public class Lease : Entity<Guid>
         return Result.Ok();
     }
 
+    public Result AddPendingEscrowPayment(EscrowPayment payment)
+    {
+        if (!Agreement.IsFullySigned)
+            return Result.Fail("Both parties must sign before funding escrow.");
+        if (_escrowPayments.Any(p => p.Id == payment.Id))
+            return Result.Fail("Payment already recorded.");
+
+        _escrowPayments.Add(payment);
+        return Result.Ok();
+    }
+
+    public Result ConfirmEscrowFunding(EscrowPayment payment)
+    {
+        if (!_escrowPayments.Any(p => p.Id == payment.Id))
+            return Result.Fail("Payment not found on this lease.");
+
+        if (Status == LeaseStatus.FundedInEscrow || Status == LeaseStatus.Releasing || Status == LeaseStatus.Released)
+            return Result.Ok();
+
+        Status = LeaseStatus.FundedInEscrow;
+        Raise(new EscrowFunded(Id, payment.Id));
+        return Result.Ok();
+    }
+
     public Result SetLandlordPayoutRecipientCode(string recipientCode)
     {
         if (Status is LeaseStatus.Released or LeaseStatus.Releasing)

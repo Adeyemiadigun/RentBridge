@@ -45,13 +45,6 @@ public sealed class FundEscrowCommandHandler(
             return Result<FundEscrowResponse>.Forbid("Only the tenant on this lease can fund escrow.");
         }
 
-        // Both signatures are required BEFORE a checkout link is created, not just
-        // before the money is accepted. RecordFunding also enforces this, but that
-        // check runs after Paystack confirms payment — by then the tenant's money has
-        // left their account and the webhook is rejected, leaving the payment stuck in
-        // Initialized with no retry path and no way for the tenant to re-initiate
-        // (the idempotent re-entry below would just hand back the same dead link).
-        // Failing here keeps a doomed payment from ever being opened.
         if (!lease.Agreement.IsFullySigned)
         {
             logger.LogInformation(
@@ -62,13 +55,12 @@ public sealed class FundEscrowCommandHandler(
                 "Both you and the landlord must sign the agreement before payment can be made.");
         }
 
-        // Idempotent re-entry: return the existing initialized checkout.
         var existing = lease.EscrowPayments
             .FirstOrDefault(p => p.Status == EscrowStatus.Initialized && !string.IsNullOrWhiteSpace(p.CheckoutUrl));
         if (existing is not null)
         {
             return Result<FundEscrowResponse>.Ok(
-                new FundEscrowResponse(existing.CheckoutUrl!, existing.Reference, existing.Status.ToString()));
+                new FundEscrowResponse(existing.CheckoutUrl!, existing.Reference, existing.Status.ToString(), existing.GrossAmount.Amount, existing.GrossAmount.Currency));
         }
 
         if (lease.EscrowPayments.Any(p => p.Status is EscrowStatus.Funded or EscrowStatus.Releasing or EscrowStatus.Released))
@@ -83,8 +75,6 @@ public sealed class FundEscrowCommandHandler(
             return Result<FundEscrowResponse>.Fail("Listing for this lease was not found.");
         }
 
-        // Snapshot the landlord's verified payout account onto the lease now, so
-        // the automatic payout can run the moment every gate has passed.
         var landlord = await unitOfWork.Repository<UserAggregate>()
             .FirstOrDefault(u => u.Id == lease.LandlordUserId, cancellationToken);
         if (landlord?.PayoutAccount is not { IsActive: true })
@@ -106,10 +96,20 @@ public sealed class FundEscrowCommandHandler(
         }
         var settings = settingsRes.Value;
 
-        // listing.Price is an EF-tracked owned Money on the tracked Listing. Give the
-        // payment its own copy so graph traversal does not try to attach one value
-        // object to two owners.
         var gross = listing.Price with { };
+        
+        // Calculate total amount: gross (annual rent) + caution fee + real house fee + agent fee
+        // These additional fees are added on top of the gross rent
+        var cautionFee = listing.CautionFee?.Amount ?? 0m;
+        var realHouseFee = listing.RealHouseFee?.Amount ?? 0m;
+        var agentFee = listing.AgentFee?.Amount ?? 0m;
+        var totalAmount = gross.Amount + cautionFee + realHouseFee + agentFee;
+        var totalMoney = Money.Naira(totalAmount);
+        if (!totalMoney.IsSuccess)
+        {
+            return Result<FundEscrowResponse>.Fail(totalMoney.Error!);
+        }
+
         var split = BuildSplit(gross, settings.PlatformCommissionRate, settings.LegalFeeRate);
         if (!split.IsSuccess)
         {
@@ -118,9 +118,6 @@ public sealed class FundEscrowCommandHandler(
 
         var newReference = $"RB{Guid.NewGuid():N}".ToUpperInvariant();
 
-        // Reuse the lease's single payment row when a prior attempt failed or never
-        // completed, so re-funding works without tripping the per-lease idempotency
-        // unique index. Otherwise record a fresh payment.
         var payment = lease.EscrowPayments
             .Where(p => p.Status is EscrowStatus.Failed or EscrowStatus.Pending)
             .OrderByDescending(p => p.CreatedAt)
@@ -137,24 +134,19 @@ public sealed class FundEscrowCommandHandler(
         }
         else
         {
-            payment = new EscrowPaymentEntity(lease.Id, tenant.Id, gross, newReference, lease.Id);
+            payment = new EscrowPaymentEntity(lease.Id, tenant.Id, totalMoney.Value, newReference, lease.Id);
 
-            var record = lease.RecordFunding(payment);
+            var record = lease.AddPendingEscrowPayment(payment);
             if (!record.IsSuccess)
             {
                 return Result<FundEscrowResponse>.Fail(record.Error!);
             }
         }
 
-        // Attach the split BEFORE the payment enters the change tracker. EF only
-        // discovers owned navigations that are already set when it walks the graph;
-        // one assigned to an already-tracked entity is never picked up.
         payment.AttachSplit(split.Value);
 
         if (isNewPayment)
         {
-            // A brand-new EscrowPayment added to an already-tracked Lease is picked up as
-            // Modified, so EF would UPDATE a row that was never inserted.
             unitOfWork.MarkAsAdded(payment);
         }
 
@@ -162,8 +154,8 @@ public sealed class FundEscrowCommandHandler(
             new PaymentInitiationRequest(
                 payment.Id,
                 payment.Reference,
-                gross.Currency,
-                gross.Amount,
+                totalMoney.Value.Currency,
+                totalMoney.Value.Amount,
                 tenant.Email.Value,
                 paymentOptions.Paystack.CallbackUrl),
             cancellationToken);
@@ -182,7 +174,7 @@ public sealed class FundEscrowCommandHandler(
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<FundEscrowResponse>.Ok(
-            new FundEscrowResponse(payment.CheckoutUrl!, payment.Reference, payment.Status.ToString()));
+            new FundEscrowResponse(payment.CheckoutUrl!, payment.Reference, payment.Status.ToString(), totalMoney.Value.Amount, totalMoney.Value.Currency));
     }
 
     private static Result<FeeSplit> BuildSplit(Money gross, decimal commissionRate, decimal legalFeeRate)
