@@ -181,6 +181,12 @@ namespace RentBridge.Infrastructure.Migrations
                         .HasDefaultValue("Outright")
                         .HasColumnName("payment_plan");
 
+                    b.Property<int>("RentFrequency")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(4)
+                        .HasColumnName("rent_frequency");
+
                     b.Property<Guid>("PropertyId")
                         .HasColumnType("uuid");
 
