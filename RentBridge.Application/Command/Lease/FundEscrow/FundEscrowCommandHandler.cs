@@ -150,6 +150,10 @@ public sealed class FundEscrowCommandHandler(
             unitOfWork.MarkAsAdded(payment);
         }
 
+        var callbackUrl = string.IsNullOrWhiteSpace(paymentOptions.Paystack.ResolvedCallbackUrl)
+            ? paymentOptions.Paystack.ResolvedCallbackUrl
+            : $"{paymentOptions.Paystack.ResolvedCallbackUrl}?leaseId={request.LeaseId}&paymentId={payment.Id}";
+
         var init = await escrowProvider.InitializeAsync(
             new PaymentInitiationRequest(
                 payment.Id,
@@ -157,7 +161,7 @@ public sealed class FundEscrowCommandHandler(
                 totalMoney.Value.Currency,
                 totalMoney.Value.Amount,
                 tenant.Email.Value,
-                paymentOptions.Paystack.CallbackUrl),
+                callbackUrl),
             cancellationToken);
         if (!init.IsSuccess)
         {

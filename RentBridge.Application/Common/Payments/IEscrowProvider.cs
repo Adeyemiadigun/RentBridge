@@ -90,7 +90,13 @@ public interface IEscrowProvider
         string reference,
         CancellationToken cancellationToken);
 
-    /// <summary>Lists the banks available for payout for a country/currency.</summary>
+    /// <summary>
+    /// Verifies a charge transaction by its reference. Used by the callback endpoint
+    /// to determine success/failure before redirecting the user.
+    /// </summary>
+    Task<Result<PaymentNotification>> VerifyChargeAsync(
+        string reference,
+        CancellationToken cancellationToken);
     Task<Result<IReadOnlyList<BankInfo>>> ListBanksAsync(
         string country,
         string currency,

@@ -13,8 +13,22 @@ public sealed record LeaseDetailResponse(
     AgreementDetail Agreement,
     AgreementDocumentItem? AgreementDocument,
     IReadOnlyList<EscrowPaymentItem> EscrowPayments,
+    AssignedLawyerSummary? AssignedLawyer,
     decimal? TotalAmount,
     string? TotalAmountCurrency);
+
+/// <summary>
+/// Assigned lawyer contact details. The bar number lives on the lawyer's
+/// profile (owned by the User), so it is projected here rather than in the
+/// hashed agreement terms — adding it to AgreementTerms.Party would change the
+/// pinned content hash of every already-certified agreement.
+/// </summary>
+public sealed record AssignedLawyerSummary(
+    Guid Id,
+    string Name,
+    string? Email,
+    string? Phone,
+    string? BarNumber);
 
 public sealed record AgreementDetail(
     bool IsCertified,

@@ -4,6 +4,7 @@ using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
 using RentBridge.Application.Dtos.Lease;
 using LeaseAggregate = RentBridge.Domain.Aggregates.Lease;
+using UserAggregate = RentBridge.Domain.Aggregates.User;
 using RentBridge.Domain.Common;
 using RentBridge.Domain.Enums;
 
@@ -65,6 +66,22 @@ public sealed class GetLeaseQueryHandler(
             totalAmountCurrency = firstPayment.GrossAmount.Currency;
         }
 
+        // The assigned lawyer's bar number is only on the User's owned
+        // LawyerProfile, so it has to be loaded separately and projected.
+        var lawyer = lease.AssignedLawyerId is Guid assignedLawyerId
+            ? await unitOfWork.Repository<UserAggregate>()
+                .FirstOrDefault(u => u.Id == assignedLawyerId, cancellationToken)
+            : null;
+
+        var assignedLawyer = lawyer is null
+            ? null
+            : new AssignedLawyerSummary(
+                lawyer.Id,
+                $"{lawyer.FirstName} {lawyer.LastName}".Trim(),
+                lawyer.Email.Value,
+                lawyer.Phone.Value,
+                lawyer.LawyerProfile?.BarNumber);
+
         var detail = new LeaseDetailResponse(
             lease.Id,
             lease.ListingId,
@@ -98,6 +115,7 @@ public sealed class GetLeaseQueryHandler(
                     p.GrossAmount.Amount, // Total amount (same as gross for now, split is calculated from gross)
                     p.GrossAmount.Currency))
                 .ToList(),
+            assignedLawyer,
             totalAmount,
             totalAmountCurrency);
 

@@ -3,13 +3,14 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentBridge.Application.Command.Payments;
+using RentBridge.Application.Common.Payments;
 
 namespace RentBridge.Api.Controllers;
 
 /// <summary>
-/// Payment-provider webhook ingress. Always answers 200 so Paystack does not
-/// retry onto itself; actual failures are logged and surfaced by the escrow
-/// status on the lease.
+/// Payment-provider webhook ingress and checkout callback. Always answers 200 so
+/// Paystack does not retry onto itself; actual failures are logged and surfaced
+/// by the escrow status on the lease.
 /// </summary>
 [ApiController]
 [ApiVersionNeutral]
@@ -18,8 +19,13 @@ namespace RentBridge.Api.Controllers;
 [ProducesResponseType(StatusCodes.Status200OK)]
 public sealed class PaymentsController(
     IMediator mediator,
+    IEscrowProvider escrowProvider,
+    IConfiguration configuration,
     ILogger<PaymentsController> logger) : ControllerBase
 {
+    private const string MobileScheme = "rentbridge";
+    private const string WebBaseUrl = "https://app.rentbridge.com";
+
     [HttpPost]
     [AllowAnonymous]
     public async Task<IActionResult> Handle(CancellationToken ct)
@@ -36,5 +42,59 @@ public sealed class PaymentsController(
         }
 
         return Ok(new { acknowledged = true });
+    }
+
+    /// <summary>
+    /// Browser landing page after a Paystack checkout. Paystack redirects the
+    /// payer here with query parameters (trxref, reference, leaseId, paymentId).
+    /// Verifies the charge, then redirects back to the mobile app (via deep link)
+    /// or the web app with a query parameter indicating success/failure.
+    /// </summary>
+    [HttpGet("/api/payments/paystack/callback")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Callback(
+        string? trxref,
+        string? reference,
+        string? leaseId,
+        string? paymentId,
+        CancellationToken ct)
+    {
+        var refToVerify = reference ?? trxref;
+        if (string.IsNullOrWhiteSpace(refToVerify))
+        {
+            logger.LogWarning("Paystack callback missing reference/trxref");
+            return Redirect($"{WebBaseUrl}/agreements?payment=error&error=no_reference");
+        }
+
+        // Verify the charge with Paystack
+        var verifyResult = await escrowProvider.VerifyChargeAsync(refToVerify, ct);
+        var isSuccess = verifyResult.IsSuccess && verifyResult.Value.Status == PaymentStatus.Paid;
+
+        // Build redirect targets
+        var leaseIdSegment = string.IsNullOrWhiteSpace(leaseId) ? "" : $"/{leaseId}";
+        var paymentStatus = isSuccess ? "success" : "failed";
+        var refParam = $"reference={Uri.EscapeDataString(refToVerify)}";
+        var errorParam = isSuccess ? "" : $"&error={Uri.EscapeDataString(verifyResult.Error ?? "Payment was not successful")}";
+
+        var mobileUrl = $"{MobileScheme}://payment/{paymentStatus}?{refParam}{errorParam}&leaseId={Uri.EscapeDataString(leaseId ?? "")}";
+        var webUrl = $"{WebBaseUrl}/agreements{leaseIdSegment}?payment={paymentStatus}&{refParam}{errorParam}";
+
+        // Prefer mobile deep link if the request looks like it came from the app,
+        // otherwise send to the web app.
+        var userAgent = Request.Headers["User-Agent"].ToString();
+        var isMobile = userAgent.Contains("Mobile", StringComparison.OrdinalIgnoreCase) ||
+                       userAgent.Contains("iPhone", StringComparison.OrdinalIgnoreCase) ||
+                       userAgent.Contains("Android", StringComparison.OrdinalIgnoreCase) ||
+                       userAgent.Contains("Expo", StringComparison.OrdinalIgnoreCase);
+
+        var redirectUrl = isMobile ? mobileUrl : webUrl;
+
+        logger.LogInformation(
+            "Paystack callback for reference {Reference}: {Status} -> redirecting to {Url}",
+            refToVerify,
+            paymentStatus,
+            redirectUrl);
+
+        return Redirect(redirectUrl);
     }
 }

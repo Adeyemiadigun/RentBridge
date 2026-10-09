@@ -25,6 +25,35 @@ public sealed class PaymentOptions
         public string CallbackUrl { get; set; } = string.Empty;
 
         /// <summary>
+        /// Public origin of the API, used to build a callback URL when one is
+        /// not explicitly configured.
+        /// </summary>
+        public string PublicBaseUrl { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Where Paystack sends the payer after checkout. A real, configured
+        /// CallbackUrl wins. A blank value — or the legacy placeholder
+        /// (<c>your-domain.example</c>) that produced a NXDOMAIN dead-end —
+        /// falls back to this API's own callback page so the browser always
+        /// lands somewhere that resolves.
+        /// </summary>
+        public string ResolvedCallbackUrl
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(CallbackUrl)
+                    && !CallbackUrl.Contains("your-domain.example", StringComparison.OrdinalIgnoreCase))
+                {
+                    return CallbackUrl;
+                }
+
+                return string.IsNullOrWhiteSpace(PublicBaseUrl)
+                    ? string.Empty
+                    : $"{PublicBaseUrl.TrimEnd('/')}/api/payments/paystack/callback";
+            }
+        }
+
+        /// <summary>
         /// Paystack signs webhooks with your Secret Key — there is no separate
         /// webhook secret in the dashboard. An explicit WebhookSecret wins;
         /// otherwise the Secret Key is used.

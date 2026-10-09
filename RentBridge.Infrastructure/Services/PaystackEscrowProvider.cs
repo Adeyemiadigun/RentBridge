@@ -34,7 +34,9 @@ public sealed class PaystackEscrowProvider(
             ["email"] = request.PayerEmail,
             ["amount"] = ToMinorUnits(request.Amount),
             ["reference"] = request.Reference,
-            ["callback_url"] = options.Paystack.CallbackUrl,
+                ["callback_url"] = string.IsNullOrWhiteSpace(request.CallbackUrl)
+                    ? options.Paystack.ResolvedCallbackUrl
+                    : request.CallbackUrl,
         };
 
         using var response = await httpClient.PostAsJsonAsync(
@@ -129,6 +131,32 @@ public sealed class PaystackEscrowProvider(
 
         return Result<TransferResult>.Ok(
             new TransferResult(payload.Data?.Reference ?? request.Reference, payload.Data?.TransferCode ?? "Initiated"));
+    }
+
+    public async Task<Result<PaymentNotification>> VerifyChargeAsync(
+        string reference,
+        CancellationToken cancellationToken)
+    {
+        var url = $"/transaction/verify/{Uri.EscapeDataString(reference)}";
+        using var response = await httpClient.GetAsync(url, cancellationToken);
+
+        var payload = await DeserializeAsync<ChargeVerifyResponse>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || payload is not { Status: true } || payload.Data is null)
+        {
+            return Result<PaymentNotification>.Fail(payload?.Message ?? "Paystack charge verification failed.");
+        }
+
+        var data = payload.Data;
+        var paymentStatus = string.Equals(data.Status, "success", StringComparison.OrdinalIgnoreCase)
+            ? PaymentStatus.Paid
+            : PaymentStatus.Failed;
+
+        return Result<PaymentNotification>.Ok(
+            new PaymentNotification(
+                data.Reference,
+                paymentStatus,
+                data.Amount / 100m,
+                paymentStatus == PaymentStatus.Paid ? PaymentEventKind.ChargeSuccess : PaymentEventKind.ChargeFailed));
     }
 
     public async Task<Result<TransferResult>> GetTransferStatusAsync(
@@ -258,4 +286,6 @@ public sealed class PaystackEscrowProvider(
     private sealed record ResolveData(string AccountNumber, string AccountName);
     private sealed record RecipientResponse(bool Status, RecipientData? Data, string? Message);
     private sealed record RecipientData(string RecipientCode);
+    private sealed record ChargeVerifyResponse(bool Status, ChargeVerifyData? Data, string? Message);
+    private sealed record ChargeVerifyData(string Reference, string Status, long Amount);
 }
