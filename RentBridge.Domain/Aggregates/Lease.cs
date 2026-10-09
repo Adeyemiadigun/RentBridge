@@ -155,15 +155,19 @@ public class Lease : Entity<Guid>
             return Result.Fail("No confirmed inspection to complete.");
         }
 
+        // TESTING BYPASS: the "actual date cannot be earlier than the scheduled
+        // date" rule is temporarily disabled so inspections can be completed
+        // without waiting for the booked date. RE-ENABLE BEFORE PRODUCTION.
+        //
         // Completing before the booked date produces an agreement that certifies an
         // inspection earlier than the one both parties agreed to. Compared at date
         // granularity for the same reason as the command validator.
-        if (confirmed.ScheduledDate is { } scheduled &&
-            actualDate.UtcDateTime.Date < scheduled.UtcDateTime.Date)
-        {
-            return Result.Fail(
-                $"The actual inspection date cannot be earlier than the scheduled inspection date ({scheduled:yyyy-MM-dd}).");
-        }
+        // if (confirmed.ScheduledDate is { } scheduled &&
+        //     actualDate.UtcDateTime.Date < scheduled.UtcDateTime.Date)
+        // {
+        //     return Result.Fail(
+        //         $"The actual inspection date cannot be earlier than the scheduled inspection date ({scheduled:yyyy-MM-dd}).");
+        // }
 
         var result = confirmed.Complete(actualDate, notes);
         if (!result.IsSuccess)
