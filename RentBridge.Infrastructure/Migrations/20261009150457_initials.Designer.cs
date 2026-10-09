@@ -12,8 +12,8 @@ using RentBridge.Infrastructure.Persistence;
 namespace RentBridge.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260929091754_EnforceSingleLiveInspectionRequestPerLease")]
-    partial class EnforceSingleLiveInspectionRequestPerLease
+    [Migration("20261009150457_initials")]
+    partial class initials
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -104,9 +104,6 @@ namespace RentBridge.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTimeOffset?>("IdentityGatePassed")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTimeOffset?>("InspectionGatePassed")
                         .HasColumnType("timestamp with time zone");
 
@@ -193,6 +190,9 @@ namespace RentBridge.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("PublishedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("RentFrequency")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -205,6 +205,8 @@ namespace RentBridge.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("PropertyId");
 
                     b.HasIndex("Status");
 
@@ -311,6 +313,9 @@ namespace RentBridge.Infrastructure.Migrations
 
                     b.Property<bool>("IdentityVerified")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("IdentityVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("KycVerificationId")
                         .HasColumnType("uuid");
@@ -546,6 +551,12 @@ namespace RentBridge.Infrastructure.Migrations
 
             modelBuilder.Entity("RentBridge.Domain.Aggregates.Lease", b =>
                 {
+                    b.HasOne("RentBridge.Domain.Aggregates.Listing", null)
+                        .WithMany()
+                        .HasForeignKey("ListingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("RentBridge.Domain.Aggregates.Agreement", "Agreement", b1 =>
                         {
                             b1.Property<Guid>("LeaseId")
@@ -576,7 +587,6 @@ namespace RentBridge.Infrastructure.Migrations
                             b1.OwnsOne("RentBridge.Domain.Aggregates.AgreementDocument", "Document", b2 =>
                                 {
                                     b2.Property<Guid>("Id")
-                                        .ValueGeneratedOnAdd()
                                         .HasColumnType("uuid");
 
                                     b2.Property<Guid>("AgreementId")
@@ -905,6 +915,12 @@ namespace RentBridge.Infrastructure.Migrations
 
             modelBuilder.Entity("RentBridge.Domain.Aggregates.Listing", b =>
                 {
+                    b.HasOne("RentBridge.Domain.Aggregates.Property", null)
+                        .WithMany()
+                        .HasForeignKey("PropertyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.OwnsOne("RentBridge.Domain.ValueObjects.Money", "AgentFee", b1 =>
                         {
                             b1.Property<Guid>("ListingId")

@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace RentBridge.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class Initials : Migration
+    public partial class initials : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -48,32 +48,6 @@ namespace RentBridge.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "leases",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ListingId = table.Column<Guid>(type: "uuid", nullable: false),
-                    TenantUserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    LandlordUserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    AssignedLawyerId = table.Column<Guid>(type: "uuid", nullable: true),
-                    Status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    IdentityGatePassed = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    InspectionGatePassed = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    LegalGatePassed = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    Agreement_Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    agreement_content_hash = table.Column<string>(type: "text", nullable: true),
-                    agreement_certifying_lawyer_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    agreement_certified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    landlord_payout_recipient_code = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_leases", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "ledger_entries",
                 columns: table => new
                 {
@@ -96,36 +70,6 @@ namespace RentBridge.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ledger_entries", x => x.id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "listings",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    OwnerUserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    PropertyId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Title = table.Column<string>(type: "text", nullable: false),
-                    Description = table.Column<string>(type: "text", nullable: true),
-                    price_amount = table.Column<decimal>(type: "numeric", nullable: false),
-                    price_currency = table.Column<string>(type: "text", nullable: false),
-                    listing_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false, defaultValue: "Rent"),
-                    payment_plan = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false, defaultValue: "Outright"),
-                    caution_fee_amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
-                    caution_fee_currency = table.Column<string>(type: "character varying(8)", maxLength: 8, nullable: true),
-                    other_expenses = table.Column<string>(type: "text", nullable: true),
-                    real_house_fee_amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
-                    real_house_fee_currency = table.Column<string>(type: "character varying(8)", maxLength: 8, nullable: true),
-                    agent_fee_amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
-                    agent_fee_currency = table.Column<string>(type: "character varying(8)", maxLength: 8, nullable: true),
-                    Status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
-                    CoverImageKey = table.Column<string>(type: "text", nullable: true),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    PublishedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_listings", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -216,6 +160,7 @@ namespace RentBridge.Infrastructure.Migrations
                     Role = table.Column<int>(type: "integer", nullable: false),
                     IdentityVerified = table.Column<bool>(type: "boolean", nullable: false),
                     KycVerificationId = table.Column<Guid>(type: "uuid", nullable: true),
+                    IdentityVerifiedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     PasswordHash = table.Column<string>(type: "text", nullable: false),
                     PasswordSalt = table.Column<string>(type: "text", nullable: false),
                     bar_number = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
@@ -233,6 +178,120 @@ namespace RentBridge.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_users", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "listings",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    OwnerUserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    PropertyId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: true),
+                    price_amount = table.Column<decimal>(type: "numeric", nullable: false),
+                    price_currency = table.Column<string>(type: "text", nullable: false),
+                    listing_type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false, defaultValue: "Rent"),
+                    payment_plan = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false, defaultValue: "Outright"),
+                    RentFrequency = table.Column<int>(type: "integer", nullable: false),
+                    caution_fee_amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    caution_fee_currency = table.Column<string>(type: "character varying(8)", maxLength: 8, nullable: true),
+                    other_expenses = table.Column<string>(type: "text", nullable: true),
+                    real_house_fee_amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    real_house_fee_currency = table.Column<string>(type: "character varying(8)", maxLength: 8, nullable: true),
+                    agent_fee_amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    agent_fee_currency = table.Column<string>(type: "character varying(8)", maxLength: 8, nullable: true),
+                    Status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    CoverImageKey = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    PublishedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_listings", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_listings_properties_PropertyId",
+                        column: x => x.PropertyId,
+                        principalTable: "properties",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ownership_documents",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    PropertyId = table.Column<Guid>(type: "uuid", nullable: false),
+                    FileKey = table.Column<string>(type: "text", nullable: false),
+                    Status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    verified_by_user_id = table.Column<string>(type: "text", nullable: true),
+                    verified_by_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    verified_by_role = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    rejection_reason = table.Column<string>(type: "text", nullable: true),
+                    UploadedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    reviewed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ownership_documents", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ownership_documents_properties_PropertyId",
+                        column: x => x.PropertyId,
+                        principalTable: "properties",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "leases",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ListingId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TenantUserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    LandlordUserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    AssignedLawyerId = table.Column<Guid>(type: "uuid", nullable: true),
+                    Status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    InspectionGatePassed = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    LegalGatePassed = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    Agreement_Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    agreement_content_hash = table.Column<string>(type: "text", nullable: true),
+                    agreement_certifying_lawyer_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    agreement_certified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    landlord_payout_recipient_code = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_leases", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_leases_listings_ListingId",
+                        column: x => x.ListingId,
+                        principalTable: "listings",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "listing_images",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ListingId = table.Column<Guid>(type: "uuid", nullable: false),
+                    url = table.Column<string>(type: "text", nullable: false),
+                    position = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_listing_images", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_listing_images_listings_ListingId",
+                        column: x => x.ListingId,
+                        principalTable: "listings",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -323,9 +382,11 @@ namespace RentBridge.Infrastructure.Migrations
                     TenantUserId = table.Column<Guid>(type: "uuid", nullable: false),
                     PreferredDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ScheduledDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    Notes = table.Column<string>(type: "text", nullable: true),
+                    notes = table.Column<string>(type: "text", nullable: true),
                     ProposedDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     RescheduleNote = table.Column<string>(type: "text", nullable: true),
+                    actual_date = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    completion_notes = table.Column<string>(type: "text", nullable: true),
                     Status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     Note = table.Column<string>(type: "text", nullable: true),
                     LeaseId = table.Column<Guid>(type: "uuid", nullable: false)
@@ -337,52 +398,6 @@ namespace RentBridge.Infrastructure.Migrations
                         name: "FK_inspection_requests_leases_LeaseId",
                         column: x => x.LeaseId,
                         principalTable: "leases",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "listing_images",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ListingId = table.Column<Guid>(type: "uuid", nullable: false),
-                    url = table.Column<string>(type: "text", nullable: false),
-                    position = table.Column<int>(type: "integer", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_listing_images", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_listing_images_listings_ListingId",
-                        column: x => x.ListingId,
-                        principalTable: "listings",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "ownership_documents",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    PropertyId = table.Column<Guid>(type: "uuid", nullable: false),
-                    FileKey = table.Column<string>(type: "text", nullable: false),
-                    Status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
-                    verified_by_user_id = table.Column<string>(type: "text", nullable: true),
-                    verified_by_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    verified_by_role = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
-                    rejection_reason = table.Column<string>(type: "text", nullable: true),
-                    UploadedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    reviewed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ownership_documents", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_ownership_documents_properties_PropertyId",
-                        column: x => x.PropertyId,
-                        principalTable: "properties",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -423,9 +438,11 @@ namespace RentBridge.Infrastructure.Migrations
                 filter: "\"Status\" IN ('Releasing', 'Released')");
 
             migrationBuilder.CreateIndex(
-                name: "IX_inspection_requests_LeaseId",
+                name: "IX_inspection_requests_LeaseId_live",
                 table: "inspection_requests",
-                column: "LeaseId");
+                column: "LeaseId",
+                unique: true,
+                filter: "\"Status\" IN ('Pending', 'Confirmed', 'ReschedulePending')");
 
             migrationBuilder.CreateIndex(
                 name: "IX_inspection_requests_TenantUserId",
@@ -477,6 +494,11 @@ namespace RentBridge.Infrastructure.Migrations
                 name: "IX_listings_OwnerUserId",
                 table: "listings",
                 column: "OwnerUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_listings_PropertyId",
+                table: "listings",
+                column: "PropertyId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_listings_Status",
