@@ -151,7 +151,7 @@ public sealed class FundEscrowCommandHandler(
         }
 
         var callbackUrl = string.IsNullOrWhiteSpace(paymentOptions.Paystack.ResolvedCallbackUrl)
-            ? paymentOptions.Paystack.ResolvedCallbackUrl
+            ? string.Empty
             : $"{paymentOptions.Paystack.ResolvedCallbackUrl}?leaseId={request.LeaseId}&paymentId={payment.Id}";
 
         var init = await escrowProvider.InitializeAsync(
