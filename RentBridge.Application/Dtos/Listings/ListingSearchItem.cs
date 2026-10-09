@@ -16,6 +16,7 @@ public sealed record ListingSearchItem(
     Guid PropertyId,
     ListingType ListingType,
     PaymentPlan PaymentPlan,
+    RentFrequency RentFrequency,
     decimal? CautionFeeAmount,
     decimal? RealHouseFeeAmount,
     decimal? AgentFeeAmount,

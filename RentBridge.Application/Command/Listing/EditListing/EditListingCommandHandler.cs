@@ -47,7 +47,7 @@ namespace RentBridge.Application.Command.Listing
                 price = moneyResult.Value;
             }
 
-            var updated = listing.UpdateDetails(request.Title, request.Description, price);
+            var updated = listing.UpdateDetails(request.Title, request.Description, price, request.RentFrequency);
             if (!updated.IsSuccess)
             {
                 logger.LogInformation("Listing {listingId} cannot be edited: {error}", request.ListingId, updated.Error);

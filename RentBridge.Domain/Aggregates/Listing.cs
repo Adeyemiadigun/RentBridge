@@ -14,6 +14,7 @@ public class Listing : Entity<Guid>
     public Money Price { get; private set; }
     public ListingType ListingType { get; private set; } = ListingType.Rent;
     public PaymentPlan PaymentPlan { get; private set; } = PaymentPlan.Outright;
+    public RentFrequency RentFrequency { get; private set; } = RentFrequency.Annually;
     public Money? CautionFee { get; private set; }
     public string? OtherExpenses { get; private set; }
     public Money? RealHouseFee { get; private set; }
@@ -35,6 +36,7 @@ public class Listing : Entity<Guid>
         string? description = null,
         ListingType listingType = ListingType.Rent,
         PaymentPlan paymentPlan = PaymentPlan.Outright,
+        RentFrequency rentFrequency = RentFrequency.Annually,
         Money? cautionFee = null,
         string? otherExpenses = null,
         Money? realHouseFee = null,
@@ -48,6 +50,7 @@ public class Listing : Entity<Guid>
         Description = description;
         ListingType = listingType;
         PaymentPlan = paymentPlan;
+        RentFrequency = rentFrequency;
         CautionFee = cautionFee;
         OtherExpenses = otherExpenses;
         RealHouseFee = realHouseFee;
@@ -70,12 +73,13 @@ public class Listing : Entity<Guid>
     /// Updates mutable listing details. Closed listings are terminal and
     /// cannot be edited. Null arguments leave the current value unchanged.
     /// </summary>
-    public Result UpdateDetails(string? title, string? description, Money? price)
+    public Result UpdateDetails(string? title, string? description, Money? price, RentFrequency? rentFrequency)
     {
         if (Status == ListingStatus.Closed) return Result.Fail("Closed listings cannot be edited");
         if (title is not null) Title = title;
         if (description is not null) Description = description;
         if (price is not null) Price = price;
+        if (rentFrequency.HasValue) RentFrequency = rentFrequency.Value;
         return Result.Ok();
     }
 

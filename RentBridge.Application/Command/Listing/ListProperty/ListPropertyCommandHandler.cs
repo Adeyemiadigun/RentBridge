@@ -84,6 +84,7 @@ namespace RentBridge.Application.Command.Listing
                 request.Description,
                 request.ListingType,
                 request.PaymentPlan,
+                request.RentFrequency,
                 cautionFee,
                 request.OtherExpenses,
                 realHouseFee,

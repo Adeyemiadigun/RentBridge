@@ -14,6 +14,7 @@ namespace RentBridge.Application.Command.Listing
         string? Description = null,
         ListingType ListingType = ListingType.Rent,
         PaymentPlan PaymentPlan = PaymentPlan.Outright,
+        RentFrequency RentFrequency = RentFrequency.Annually,
         decimal? CautionFeeAmount = null,
         string? OtherExpenses = null,
         decimal? RealHouseFeeAmount = null,
