@@ -20,7 +20,7 @@ public sealed class AutoAssignLeaseLawyerOnInspectionConfirmedEventHandler(
             return;
         }
 
-        var lawyer = await lawyerAssignmentService.PickNextVerifiedLawyerAsync(cancellationToken);
+        var lawyer = await lawyerAssignmentService.ResolveLeaseLawyerAsync(lease.ListingId, cancellationToken);
         if (!lawyer.IsSuccess)
         {
             logger.LogWarning(

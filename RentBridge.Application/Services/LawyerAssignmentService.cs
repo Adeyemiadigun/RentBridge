@@ -41,6 +41,34 @@ public class LawyerAssignmentService(
         return Result<Guid>.Ok(nominee.Id);
     }
 
+    public async Task<Result<Guid>> ResolveLeaseLawyerAsync(Guid listingId, CancellationToken ct)
+    {
+        var preferred = await GetPropertyVerificationLawyerAsync(listingId, ct);
+        if (preferred is not null)
+            return Result<Guid>.Ok(preferred.Value);
+
+        return await PickNextVerifiedLawyerAsync(ct);
+    }
+
+    public async Task<Guid?> GetPropertyVerificationLawyerAsync(Guid listingId, CancellationToken ct)
+    {
+        var listing = await unitOfWork.Repository<Listing>().GetByIdAsync(listingId, ct);
+        if (listing is null)
+            return null;
+
+        var property = await unitOfWork.Repository<PropertyAggregate>().GetByIdAsync(listing.PropertyId, ct);
+        var preferred = property?.VerificationLawyerId;
+        if (preferred is null || !await IsVerifiedLawyerAsync(preferred.Value, ct))
+            return null;
+
+        // Reuse the property's verification lawyer so the same lawyer carries the
+        // matter from verification through legal review. MarkAssigned keeps them
+        // at the back of the round-robin queue.
+        var tracked = await unitOfWork.Repository<User>().GetByIdAsync(preferred.Value, ct);
+        tracked?.LawyerProfile?.MarkAssigned();
+        return preferred.Value;
+    }
+
     public async Task<Result<Guid>> ResolveAndAuthorizeAsync(PropertyAggregate property, User actor, CancellationToken ct)
     {
         var current = property.VerificationLawyerId;

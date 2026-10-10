@@ -56,21 +56,42 @@ public sealed class BeginLegalReviewCommandHandler(
 
                 // Assign a lawyer BEFORE composing: BuildTerms reads AssignedLawyerId,
                 // so composing first drafted an agreement naming no lawyer at all.
-                if (lease.AssignedLawyerId is null)
+                // Continuity: the lawyer assigned when the property was submitted
+                // should carry the matter through legal review. If nobody is
+                // assigned yet pick (preferring the property's lawyer); if an
+                // earlier round-robin pass assigned someone else, snap the
+                // assignment back to the property's lawyer.
+                var target = lease.AssignedLawyerId;
+                if (target is null)
                 {
-                    var picked = await lawyerService.PickNextVerifiedLawyerAsync(cancellationToken);
+                    var picked = await lawyerService.ResolveLeaseLawyerAsync(lease.ListingId, cancellationToken);
                     if (!picked.IsSuccess)
                     {
                         logger.LogWarning("No verified lawyer available for lease {LeaseId}: {Error}", request.LeaseId, picked.Error);
                         return Result.Fail("No verified lawyer is currently available. Contact an admin.");
                     }
+                    target = picked.Value;
+                }
+                else
+                {
+                    var propertyLawyer = await lawyerService.GetPropertyVerificationLawyerAsync(lease.ListingId, cancellationToken);
+                    if (propertyLawyer is not null && propertyLawyer != target)
+                    {
+                        logger.LogInformation(
+                            "Reusing property verification lawyer {LawyerId} for lease {LeaseId} (was {Previous}).",
+                            propertyLawyer.Value, request.LeaseId, target.Value);
+                        target = propertyLawyer;
+                    }
+                }
 
-                    var assign = lease.AssignLawyer(picked.Value);
+                if (lease.AssignedLawyerId != target)
+                {
+                    var assign = lease.AssignLawyer(target!.Value);
                     if (!assign.IsSuccess)
                     {
                         logger.LogInformation(
                             "Lease {LeaseId} cannot be assigned lawyer {LawyerId}: {Error}",
-                            request.LeaseId, picked.Value, assign.Error);
+                            request.LeaseId, target!.Value, assign.Error);
                         return Result.Fail(assign.Error!);
                     }
                 }
