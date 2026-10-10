@@ -73,21 +73,25 @@ public sealed class PaymentsController(
         if (string.IsNullOrWhiteSpace(refToVerify))
         {
             logger.LogWarning("Paystack callback missing reference/trxref");
-            return Redirect($"{WebBaseUrl}/agreements?payment=error&error=no_reference");
+            return Redirect($"{WebBaseUrl}/dashboard?payment=error&error=no_reference");
         }
 
         // Verify the charge with Paystack
         var verifyResult = await escrowProvider.VerifyChargeAsync(refToVerify, ct);
         var isSuccess = verifyResult.IsSuccess && verifyResult.Value.Status == PaymentStatus.Paid;
 
-        // Build redirect targets
-        var leaseIdSegment = string.IsNullOrWhiteSpace(leaseId) ? "" : $"/{leaseId}";
+        // Build redirect targets. The web app's agreement screen lives at
+        // /dashboard/agreement/{leaseId}; the previous /agreements path had no
+        // route and stranded payers on the not-found page.
         var paymentStatus = isSuccess ? "success" : "failed";
         var refParam = $"reference={Uri.EscapeDataString(refToVerify)}";
         var errorParam = isSuccess ? "" : $"&error={Uri.EscapeDataString(verifyResult.Error ?? "Payment was not successful")}";
 
         var mobileUrl = $"{MobileScheme}://payment/{paymentStatus}?{refParam}{errorParam}&leaseId={Uri.EscapeDataString(leaseId ?? "")}";
-        var webUrl = $"{WebBaseUrl}/agreements{leaseIdSegment}?payment={paymentStatus}&{refParam}{errorParam}";
+        var webPath = string.IsNullOrWhiteSpace(leaseId)
+            ? "/dashboard"
+            : $"/dashboard/agreement/{leaseId}";
+        var webUrl = $"{WebBaseUrl}{webPath}?payment={paymentStatus}&{refParam}{errorParam}";
 
         // Prefer mobile deep link if the request looks like it came from the app,
         // otherwise send to the web app.
