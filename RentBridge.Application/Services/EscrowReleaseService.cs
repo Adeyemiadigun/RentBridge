@@ -157,6 +157,9 @@ public sealed class EscrowReleaseService(
 
         if (!transfer.IsSuccess)
         {
+            logger.LogWarning(
+                "Payout transfer rejected for lease {LeaseId} (payment {Reference}, attempt {Attempt}): {Error}",
+                leaseId, payment.Reference, payment.PayoutAttempts + 1, transfer.Error);
             await RecordPayoutFailureAsync(lease, payment, cancellationToken);
             return Result.Fail(transfer.Error!);
         }
