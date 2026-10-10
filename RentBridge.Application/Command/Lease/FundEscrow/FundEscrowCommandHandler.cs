@@ -110,7 +110,7 @@ public sealed class FundEscrowCommandHandler(
             return Result<FundEscrowResponse>.Fail(totalMoney.Error!);
         }
 
-        var split = BuildSplit(gross, settings.PlatformCommissionRate, settings.LegalFeeRate);
+        var split = BuildSplit(totalMoney.Value, settings.PlatformCommissionRate, settings.LegalFeeRate);
         if (!split.IsSuccess)
         {
             return Result<FundEscrowResponse>.Fail(split.Error!);
