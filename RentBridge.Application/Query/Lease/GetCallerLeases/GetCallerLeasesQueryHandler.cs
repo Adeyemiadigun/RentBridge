@@ -112,7 +112,9 @@ public sealed class GetCallerLeasesQueryHandler(
                         r.ScheduledDate,
                         string.IsNullOrWhiteSpace(r.Note) ? null : r.Note,
                         r.ActualDate,
-                        string.IsNullOrWhiteSpace(r.Notes) ? null : r.Notes))
+                        string.IsNullOrWhiteSpace(r.Notes) ? null : r.Notes,
+                        r.ProposedDate,
+                        string.IsNullOrWhiteSpace(r.RescheduleNote) ? null : r.RescheduleNote))
                     .FirstOrDefault(),
                     l.Agreement.Signatures.Select(s => s.Party).ToList());
         }).ToList();

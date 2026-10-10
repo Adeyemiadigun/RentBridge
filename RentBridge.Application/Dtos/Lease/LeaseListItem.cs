@@ -31,4 +31,6 @@ public sealed record InspectionListItem(
     DateTimeOffset? ScheduledDate,
     string? Note,
     DateTimeOffset? ActualDate = null,
-    string? Notes = null);
+    string? Notes = null,
+    DateTimeOffset? ProposedDate = null,
+    string? RescheduleNote = null);
