@@ -56,14 +56,34 @@ public sealed class GetLeaseQueryHandler(
                 lease.Status);
         }
 
-        // Calculate total amount (gross + caution fee + real house fee + agent fee) from the first escrow payment's split
+        // Calculate total amount (gross + caution fee + real house fee + agent fee)
+        // from the listing, so the amount the tenant must pay is available even
+        // before any escrow payment exists. Previously this only read the first
+        // escrow payment, which made the web/mobile agreement page show ₦0 until
+        // a payment record had been created.
         decimal? totalAmount = null;
         string? totalAmountCurrency = null;
-        var firstPayment = lease.EscrowPayments.FirstOrDefault();
-        if (firstPayment is not null && firstPayment.Split is not null)
+        var listing = await unitOfWork.Repository<Domain.Aggregates.Listing>()
+            .FirstOrDefault(l => l.Id == lease.ListingId, cancellationToken);
+        if (listing is not null)
         {
-            totalAmount = firstPayment.GrossAmount.Amount;
-            totalAmountCurrency = firstPayment.GrossAmount.Currency;
+            totalAmount = listing.Price.Amount
+                + (listing.CautionFee?.Amount ?? 0m)
+                + (listing.RealHouseFee?.Amount ?? 0m)
+                + (listing.AgentFee?.Amount ?? 0m);
+            totalAmountCurrency = listing.Price.Currency;
+        }
+
+        // Fallback for leases whose listing has been removed: report the gross of
+        // the most recent escrow payment so the total never silently drops to zero.
+        if (listing is null)
+        {
+            var firstPayment = lease.EscrowPayments.FirstOrDefault();
+            if (firstPayment is not null && firstPayment.Split is not null)
+            {
+                totalAmount = firstPayment.GrossAmount.Amount;
+                totalAmountCurrency = firstPayment.GrossAmount.Currency;
+            }
         }
 
         // The assigned lawyer's bar number is only on the User's owned

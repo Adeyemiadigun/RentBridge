@@ -24,7 +24,17 @@ public sealed class PaymentsController(
     ILogger<PaymentsController> logger) : ControllerBase
 {
     private const string MobileScheme = "rentbridge";
-    private const string WebBaseUrl = "https://app.rentbridge.com";
+    // Public origin of the hosted web client. Paystack returns the payer to this
+    // API's checkout callback, which verifies the charge and forwards them here.
+    // Override via App:WebBaseUrl for a different origin; the previous hardcoded
+    // "https://app.rentbridge.com" does not resolve (DNS NXDOMAIN) and stranded
+    // payers on a dead page after a successful payment.
+    private const string DefaultWebBaseUrl = "https://rent-bridge-d9w4.onrender.com";
+
+    private string WebBaseUrl =>
+        configuration["App:WebBaseUrl"] is { Length: > 0 } configured
+            ? configured.TrimEnd('/')
+            : DefaultWebBaseUrl;
 
     [HttpPost]
     [AllowAnonymous]

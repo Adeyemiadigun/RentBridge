@@ -111,6 +111,65 @@ public sealed class CloudinaryFileStorage(
         return Result<string>.Fail("Upload returned no URL.");
     }
 
+    public Task<Result<string>> GetSignedDownloadUrlAsync(string fileUrl, CancellationToken ct)
+    {
+        var opts = options.Value;
+        if (string.IsNullOrWhiteSpace(opts.CloudName) || string.IsNullOrWhiteSpace(opts.ApiSecret))
+        {
+            return Task.FromResult(Result<string>.Fail("Cloudinary is not configured."));
+        }
+
+        try
+        {
+            var uri = new Uri(fileUrl);
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+            // URL format: https://res.cloudinary.com/{cloud}/{resource_type}/upload/{version?}/{public_id}.{format}
+            int uploadIndex = Array.FindIndex(segments, s => s == "upload");
+            if (uploadIndex < 0 || uploadIndex + 1 >= segments.Length)
+            {
+                return Task.FromResult(Result<string>.Fail("Invalid Cloudinary URL format."));
+            }
+
+            var publicIdWithExt = string.Join("/", segments.Skip(uploadIndex + 1));
+            var parts = publicIdWithExt.Split('/');
+
+            // Drop a leading version segment (v<digits>) so the signed URL uses the
+            // canonical form the signature is validated against.
+            var first = parts[0];
+            if (first.StartsWith('v') && first.Length > 1 && char.IsDigit(first[1]))
+            {
+                parts = parts.Skip(1).ToArray();
+            }
+            publicIdWithExt = string.Join("/", parts);
+
+            if (string.IsNullOrWhiteSpace(publicIdWithExt))
+            {
+                return Task.FromResult(Result<string>.Fail("Invalid Cloudinary URL format."));
+            }
+
+            // Already signed; nothing to do.
+            if (Array.Exists(segments, s => s.StartsWith("s--", StringComparison.Ordinal)))
+            {
+                return Task.FromResult(Result<string>.Ok(fileUrl));
+            }
+
+            // Delivery URL signature: SHA-1 of (everything after the signature
+            // component + API secret), URL-safe base64, first 8 chars.
+            var payload = $"{publicIdWithExt}{opts.ApiSecret}";
+            var hash = SHA1.HashData(Encoding.UTF8.GetBytes(payload));
+            var b64 = Convert.ToBase64String(hash).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+            var signature = b64[..Math.Min(8, b64.Length)];
+
+            var signedUrl = $"{uri.Scheme}://{uri.Host}/{segments[0]}/{segments[1]}/upload/s--{signature}--/{publicIdWithExt}";
+            return Task.FromResult(Result<string>.Ok(signedUrl));
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(Result<string>.Fail($"Failed to sign download URL: {ex.Message}"));
+        }
+    }
+
     public async Task<Result> DeleteAsync(string fileUrl, CancellationToken ct)
     {
         var opts = options.Value;

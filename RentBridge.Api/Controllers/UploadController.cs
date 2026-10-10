@@ -37,4 +37,32 @@ public sealed class UploadController(IFileStorage storage) : ControllerBase
 
         return Ok(new { url = result.Value });
     }
+
+    /// <summary>
+    /// Returns a short-(validity)-signed Cloudinary delivery URL for a stored
+    /// file so the browser can download it. Raw/PDF delivery (and private
+    /// assets) requires the signed /s--SIGNATURE--/ component, which can only
+    /// be generated server-side from the API secret.
+    /// </summary>
+    [HttpGet("signed-url")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetSignedUrl([FromQuery] string fileUrl, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(fileUrl)
+            || !Uri.TryCreate(fileUrl, UriKind.Absolute, out var uri)
+            || !uri.Host.EndsWith("res.cloudinary.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { error = "A valid res.cloudinary.com fileUrl is required." });
+        }
+
+        var result = await storage.GetSignedDownloadUrlAsync(fileUrl, ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
+        }
+
+        return Ok(new { url = result.Value });
+    }
 }
