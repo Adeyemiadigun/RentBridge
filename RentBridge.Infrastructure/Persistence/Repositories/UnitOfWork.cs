@@ -73,7 +73,7 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
             var affected = await _context.Database.ExecuteSqlInterpolatedAsync($"""
                 UPDATE escrow_payments
                 SET "Status" = 'Releasing',
-                    "PayoutReference" = {payoutReference},
+                    payout_reference = {payoutReference},
                     "payout_started_at" = now()
                 WHERE "Id" = {escrowPaymentId}
                   AND "Status" IN ('Funded', 'PayoutFailed')
