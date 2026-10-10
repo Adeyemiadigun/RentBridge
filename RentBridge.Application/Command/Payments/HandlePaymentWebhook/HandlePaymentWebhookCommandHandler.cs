@@ -14,8 +14,8 @@ namespace RentBridge.Application.Command.Payments;
 public sealed class HandlePaymentWebhookCommandHandler(
     IUnitOfWork unitOfWork,
     IEscrowProvider escrowProvider,
+    IEscrowFundingService fundingService,
     IEscrowReleaseService releaseService,
-    ILedgerService ledgerService,
     ILogger<HandlePaymentWebhookCommandHandler> logger)
     : IRequestHandler<HandlePaymentWebhookCommand, Result>
 {
@@ -47,13 +47,17 @@ public sealed class HandlePaymentWebhookCommandHandler(
             PaymentEventKind.TransferSuccess => await HandleTransferSuccessAsync(lease, payment, cancellationToken),
             PaymentEventKind.TransferFailed or PaymentEventKind.TransferReversed
                 => await HandleTransferFailureAsync(lease, payment, notification.Kind, cancellationToken),
-            _ => await HandleChargeAsync(lease, payment, notification, cancellationToken),
+            _ => await HandleChargeAsync(payment, notification, cancellationToken),
         };
     }
 
-    /// <summary>Charge events fund escrow and kick off the automatic payout.</summary>
+    /// <summary>
+    /// Charge events fund escrow. The success path is delegated to the shared
+    /// funding service (which the browser callback also uses) so a payment is
+    /// recorded whether the webhook or the checkout redirect arrives first; a
+    /// failed charge is marked on the payment directly.
+    /// </summary>
     private async Task<Result> HandleChargeAsync(
-        LeaseAggregate lease,
         EscrowPayment payment,
         PaymentNotification notification,
         CancellationToken cancellationToken)
@@ -66,45 +70,7 @@ public sealed class HandlePaymentWebhookCommandHandler(
             return Result.Ok();
         }
 
-        if (payment.Status is not EscrowStatus.Initialized)
-        {
-            logger.LogInformation("Charge webhook for {Reference} ignored; payment is {Status}",
-                notification.Reference, payment.Status);
-            return Result.Ok();
-        }
-
-        var funded = payment.MarkFunded();
-        if (!funded.IsSuccess)
-        {
-            logger.LogWarning("Cannot mark payment {Reference} funded: {Error}", notification.Reference, funded.Error);
-            return Result.Fail(funded.Error!);
-        }
-
-        var confirmed = lease.ConfirmEscrowFunding(payment);
-        if (!confirmed.IsSuccess)
-        {
-            logger.LogWarning("Cannot confirm escrow funding for {Reference}: {Error}", notification.Reference, confirmed.Error);
-            return Result.Fail(confirmed.Error!);
-        }
-
-        // Ledger line is staged with the state change and committed in the same save.
-        await ledgerService.RecordFundingAsync(lease, payment, cancellationToken);
-
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        logger.LogInformation("Escrow payment {Reference} confirmed paid", notification.Reference);
-
-        // The single automatic payout trigger: money is now confirmed received.
-        // If every gate has already passed the payout runs immediately; otherwise
-        // the bounded retry job (RetryAutoReleaseAsync) picks it up. No other
-        // flow step triggers a payout.
-        var release = await releaseService.TryAutoReleaseAsync(lease.Id, cancellationToken);
-        if (!release.IsSuccess)
-        {
-            logger.LogWarning("Automatic payout after payment {Reference} did not complete: {Error}",
-                notification.Reference, release.Error);
-        }
-
-        return Result.Ok();
+        return await fundingService.ConfirmChargeAsync(notification.Reference, cancellationToken);
     }
 
     /// <summary>The provider confirmed the payout transferred — finalize.</summary>

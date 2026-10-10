@@ -80,6 +80,22 @@ public sealed class PaymentsController(
         var verifyResult = await escrowProvider.VerifyChargeAsync(refToVerify, ct);
         var isSuccess = verifyResult.IsSuccess && verifyResult.Value.Status == PaymentStatus.Paid;
 
+        // Record the funding here as well as via the signed webhook: the charge
+        // webhook may be unconfigured or undelivered, and relying on it alone left
+        // successful charges unrecorded and the payer staring at an enabled "Pay
+        // into escrow" button. Idempotent — if the webhook already funded the
+        // payment this is a no-op, and it only runs after Paystack itself confirms
+        // the charge is paid.
+        if (isSuccess)
+        {
+            var confirm = await mediator.Send(new ConfirmEscrowChargeCommand(refToVerify), ct);
+            if (!confirm.IsSuccess)
+            {
+                logger.LogWarning("Callback could not confirm escrow funding for {Reference}: {Error}",
+                    refToVerify, confirm.Error);
+            }
+        }
+
         // Build redirect targets. The web app's agreement screen lives at
         // /dashboard/agreement/{leaseId}; the previous /agreements path had no
         // route and stranded payers on the not-found page.
