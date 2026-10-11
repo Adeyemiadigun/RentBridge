@@ -474,6 +474,13 @@ public class Lease : Entity<Guid>
             // plus the landlord's signed copy are released for deletion.
             var finalize = Agreement.FinalizeWithTenantDocument(lawyerId, DateTimeOffset.UtcNow);
             if (!finalize.IsSuccess) return finalize;
+
+            // The lawyer's approval of the final, fully-signed document is the
+            // legal sign-off. Bypass the legacy clause-certification step so the
+            // gate escrow release checks is passed here; otherwise a payout would
+            // fail "Legal review gate not passed" despite both parties signing and
+            // the lawyer approving.
+            LegalGatePassed ??= DateTimeOffset.UtcNow;
         }
 
         Status = party == LeaseParty.Tenant ? LeaseStatus.FullySigned : LeaseStatus.TenantSigning;
