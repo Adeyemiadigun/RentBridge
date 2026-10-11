@@ -256,6 +256,24 @@ using (var scope = app.Services.CreateScope())
             "Could not refresh the escrow-payout-reconciliation schedule on startup; " +
             "the existing Hangfire schedule stays active.");
     }
+
+    // Reclaims agreement files that were superseded (re-upload or finalization)
+    // but whose storage delete failed or never ran — e.g. the process died after
+    // the approval save. Keeps object storage and the file rows consistent.
+    try
+    {
+        dispatcher.AddOrUpdateRecurring<IAgreementFileCleanupService>(
+            "agreement-file-cleanup",
+            s => s.ReconcilePendingDeletionsAsync(),
+            "*/15 * * * *");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(
+            ex,
+            "Could not refresh the agreement-file-cleanup schedule on startup; " +
+            "the existing Hangfire schedule stays active.");
+    }
 }
 
 app.Run();

@@ -117,7 +117,8 @@ public sealed class GetLeaseQueryHandler(
                 lease.Agreement.IsFullySigned,
                 lease.Agreement.Signatures
                     .Select(s => new SignatureItem(s.Party, s.SignedAt))
-                    .ToList()),
+                    .ToList(),
+                AgreementProgressItem.FromAgreement(lease.Agreement)),
             lease.Agreement.Document is null
                 ? null
                 : new AgreementDocumentItem(

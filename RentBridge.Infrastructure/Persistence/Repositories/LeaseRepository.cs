@@ -58,6 +58,7 @@ public class LeaseRepository : ILeaseRepository
         if (agreementEntry is not null)
         {
             await agreementEntry.Collection(a => a.Signatures).LoadAsync(ct);
+            await agreementEntry.Collection(a => a.Files).LoadAsync(ct);
             await agreementEntry.Reference(a => a.Document).LoadAsync(ct);
         }
 
@@ -176,6 +177,17 @@ public class LeaseRepository : ILeaseRepository
             .Include(l => l.Agreement).ThenInclude(a => a.Signatures)
             .Include(l => l.Agreement).ThenInclude(a => a.Document)
             .Where(l => ids.Contains(l.Id))
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<Lease>> GetWithPendingAgreementFileDeletionsAsync(CancellationToken ct)
+    {
+        // Tracked, so the sweep can drop the purged rows and save. The Agreement
+        // is an owned reference and Files an owned collection: both are loaded with
+        // Include because EF leaves owned navigations empty otherwise.
+        return await _context.Set<Lease>()
+            .Include(l => l.Agreement).ThenInclude(a => a.Files)
+            .Where(l => l.Agreement.Files.Any(f => f.PendingDeletionAt != null && !f.IsFinal))
             .ToListAsync(ct);
     }
 }

@@ -571,8 +571,36 @@ namespace RentBridge.Infrastructure.Migrations
                                 .HasColumnType("text")
                                 .HasColumnName("agreement_content_hash");
 
+                            b1.Property<string>("FinalDocumentFileName")
+                                .HasMaxLength(400)
+                                .HasColumnType("character varying(400)")
+                                .HasColumnName("agreement_final_document_file_name");
+
+                            b1.Property<string>("FinalDocumentUrl")
+                                .HasMaxLength(1000)
+                                .HasColumnType("character varying(1000)")
+                                .HasColumnName("agreement_final_document_url");
+
+                            b1.Property<DateTimeOffset?>("FinalizedAt")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("agreement_finalized_at");
+
                             b1.Property<Guid>("Id")
                                 .HasColumnType("uuid");
+
+                            b1.Property<string>("OriginalDocumentFileName")
+                                .HasMaxLength(400)
+                                .HasColumnType("character varying(400)")
+                                .HasColumnName("agreement_original_document_file_name");
+
+                            b1.Property<DateTimeOffset?>("OriginalDocumentUploadedAt")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("agreement_original_document_uploaded_at");
+
+                            b1.Property<string>("OriginalDocumentUrl")
+                                .HasMaxLength(1000)
+                                .HasColumnType("character varying(1000)")
+                                .HasColumnName("agreement_original_document_url");
 
                             b1.HasKey("LeaseId");
 
@@ -619,6 +647,56 @@ namespace RentBridge.Infrastructure.Migrations
                                         .HasForeignKey("AgreementId");
                                 });
 
+                            b1.OwnsMany("RentBridge.Domain.ValueObjects.AgreementFile", "Files", b2 =>
+                                {
+                                    b2.Property<Guid>("Id")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<Guid>("AgreementId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<string>("FileName")
+                                        .HasMaxLength(400)
+                                        .HasColumnType("character varying(400)")
+                                        .HasColumnName("file_name");
+
+                                    b2.Property<bool>("IsFinal")
+                                        .HasColumnType("boolean")
+                                        .HasColumnName("is_final");
+
+                                    b2.Property<string>("Kind")
+                                        .IsRequired()
+                                        .HasMaxLength(30)
+                                        .HasColumnType("character varying(30)");
+
+                                    b2.Property<DateTimeOffset?>("PendingDeletionAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("pending_deletion_at");
+
+                                    b2.Property<DateTimeOffset>("UploadedAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("uploaded_at");
+
+                                    b2.Property<Guid>("UploadedByUserId")
+                                        .HasColumnType("uuid")
+                                        .HasColumnName("uploaded_by_user_id");
+
+                                    b2.Property<string>("Url")
+                                        .IsRequired()
+                                        .HasMaxLength(1000)
+                                        .HasColumnType("character varying(1000)")
+                                        .HasColumnName("url");
+
+                                    b2.HasKey("Id");
+
+                                    b2.HasIndex("AgreementId");
+
+                                    b2.ToTable("agreement_files", (string)null);
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("AgreementId");
+                                });
+
                             b1.OwnsMany("RentBridge.Domain.ValueObjects.SignatureRecord", "Signatures", b2 =>
                                 {
                                     b2.Property<Guid>("AgreementId")
@@ -657,9 +735,115 @@ namespace RentBridge.Infrastructure.Migrations
                                         .HasForeignKey("AgreementId");
                                 });
 
+                            b1.OwnsOne("RentBridge.Domain.ValueObjects.AgreementPartyReview", "LandlordReview", b2 =>
+                                {
+                                    b2.Property<Guid>("AgreementLeaseId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<DateTimeOffset?>("ApprovedAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("agreement_landlord_review_approved_at");
+
+                                    b2.Property<Guid?>("ApprovedByLawyerId")
+                                        .HasColumnType("uuid")
+                                        .HasColumnName("agreement_landlord_review_approved_by_lawyer_id");
+
+                                    b2.Property<DateTimeOffset?>("DownloadedAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("agreement_landlord_review_downloaded_at");
+
+                                    b2.Property<string>("Party")
+                                        .IsRequired()
+                                        .HasMaxLength(20)
+                                        .HasColumnType("character varying(20)")
+                                        .HasColumnName("agreement_landlord_review_party");
+
+                                    b2.Property<DateTimeOffset?>("SubmittedForReviewAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("agreement_landlord_review_submitted_at");
+
+                                    b2.Property<DateTimeOffset?>("UploadedAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("agreement_landlord_review_uploaded_at");
+
+                                    b2.Property<string>("UploadedFileName")
+                                        .HasMaxLength(400)
+                                        .HasColumnType("character varying(400)")
+                                        .HasColumnName("agreement_landlord_review_uploaded_file_name");
+
+                                    b2.Property<string>("UploadedUrl")
+                                        .HasMaxLength(1000)
+                                        .HasColumnType("character varying(1000)")
+                                        .HasColumnName("agreement_landlord_review_uploaded_url");
+
+                                    b2.HasKey("AgreementLeaseId");
+
+                                    b2.ToTable("leases");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("AgreementLeaseId");
+                                });
+
+                            b1.OwnsOne("RentBridge.Domain.ValueObjects.AgreementPartyReview", "TenantReview", b2 =>
+                                {
+                                    b2.Property<Guid>("AgreementLeaseId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<DateTimeOffset?>("ApprovedAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("agreement_tenant_review_approved_at");
+
+                                    b2.Property<Guid?>("ApprovedByLawyerId")
+                                        .HasColumnType("uuid")
+                                        .HasColumnName("agreement_tenant_review_approved_by_lawyer_id");
+
+                                    b2.Property<DateTimeOffset?>("DownloadedAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("agreement_tenant_review_downloaded_at");
+
+                                    b2.Property<string>("Party")
+                                        .IsRequired()
+                                        .HasMaxLength(20)
+                                        .HasColumnType("character varying(20)")
+                                        .HasColumnName("agreement_tenant_review_party");
+
+                                    b2.Property<DateTimeOffset?>("SubmittedForReviewAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("agreement_tenant_review_submitted_at");
+
+                                    b2.Property<DateTimeOffset?>("UploadedAt")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("agreement_tenant_review_uploaded_at");
+
+                                    b2.Property<string>("UploadedFileName")
+                                        .HasMaxLength(400)
+                                        .HasColumnType("character varying(400)")
+                                        .HasColumnName("agreement_tenant_review_uploaded_file_name");
+
+                                    b2.Property<string>("UploadedUrl")
+                                        .HasMaxLength(1000)
+                                        .HasColumnType("character varying(1000)")
+                                        .HasColumnName("agreement_tenant_review_uploaded_url");
+
+                                    b2.HasKey("AgreementLeaseId");
+
+                                    b2.ToTable("leases");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("AgreementLeaseId");
+                                });
+
                             b1.Navigation("Document");
 
+                            b1.Navigation("Files");
+
+                            b1.Navigation("LandlordReview")
+                                .IsRequired();
+
                             b1.Navigation("Signatures");
+
+                            b1.Navigation("TenantReview")
+                                .IsRequired();
                         });
 
                     b.OwnsMany("RentBridge.Domain.Entities.EscrowPayment", "EscrowPayments", b1 =>

@@ -62,7 +62,8 @@ public sealed class GetLeaseAgreementQueryHandler(
             lease.Agreement.CertifiedAt,
             lease.Agreement.Signatures
                 .Select(s => new SignatureItem(s.Party, s.SignedAt))
-                .ToList());
+                .ToList(),
+            AgreementProgressItem.FromAgreement(lease.Agreement));
 
         return Result<LeaseAgreementResponse>.Ok(response);
     }

@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<IAgreementDocumentService, AgreementDocumentService>();
         services.AddScoped<IPlatformSettingsService, PlatformSettingsService>();
         services.AddScoped<IEscrowReleaseService, EscrowReleaseService>();
+        services.AddScoped<IAgreementFileCleanupService, AgreementFileCleanupService>();
         services.AddScoped<IEscrowFundingService, EscrowFundingService>();
         services.AddScoped<ILedgerService, LedgerService>();
 

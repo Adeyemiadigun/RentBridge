@@ -11,4 +11,5 @@ public sealed record LeaseAgreementResponse(
     bool IsFullySigned,
     Guid? CertifyingLawyerId,
     DateTimeOffset? CertifiedAt,
-    IReadOnlyList<SignatureItem> Signatures);
+    IReadOnlyList<SignatureItem> Signatures,
+    AgreementProgressItem Progress);

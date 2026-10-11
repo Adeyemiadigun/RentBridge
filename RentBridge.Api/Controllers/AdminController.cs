@@ -198,6 +198,27 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Admin-only, explicit reassignment of a lease's assigned lawyer. Automatic
+    /// flows never reassign: the lawyer assigned when the property was created
+    /// owns the matter until final approval. Use this only to replace a lawyer
+    /// who is no longer verified or available.
+    /// </summary>
+    [HttpPost("leases/{leaseId:guid}/reassign-lawyer")]
+    public async Task<IActionResult> ReassignLeaseLawyer(
+        Guid leaseId,
+        [FromBody] ReassignLeaseLawyerRequest request,
+        CancellationToken ct)
+    {
+        var result = await mediator.Send(new ReassignLeaseLawyerCommand(leaseId, request.LawyerId), ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
+        }
+
+        return Ok(new { leaseId, lawyerId = request.LawyerId, reassigned = true });
+    }
+
+    /// <summary>
     /// One-off maintenance sweep for listings and leases orphaned before property
     /// deletes cascaded. Dry run by default; pass execute=true to actually delete.
     /// Any lease with escrow that moved money, or with ledger lines, is reported and
@@ -217,3 +238,6 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
         return Ok(result.Value);
     }
 }
+
+/// <summary>Body for an admin-requested lawyer reassignment.</summary>
+public sealed record ReassignLeaseLawyerRequest(Guid LawyerId);

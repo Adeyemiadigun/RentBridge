@@ -54,32 +54,20 @@ public sealed class CertifyAgreementCommandHandler(
             return Result.Fail("No lawyer is assigned to this lease yet.");
         }
 
-        // A lawyer can be suspended or rejected after being assigned, so Verified
-        // must be re-checked here, not only at pick time. Mirrors the property
-        // review path (ResolveAndAuthorizeAsync): re-pick and reassign instead of
-        // dead-ending the lease. There is no lease-reassign endpoint, and
-        // AssignLawyer raises LawyerAssigned, which emails the new lawyer.
+        // The lawyer assigned when the property was created owns the matter for
+        // its entire life — from legal review through final approval. If that
+        // lawyer is no longer verified we do NOT silently pick a replacement:
+        // that would strand documents uploaded against the previous lawyer and
+        // hand the flow to someone the parties never dealt with. Surface a clear
+        // error and require an explicit, admin-authorized reassignment.
         if (!await lawyerService.IsVerifiedLawyerAsync(lease.AssignedLawyerId.Value, cancellationToken))
         {
-            var previous = lease.AssignedLawyerId.Value;
-            var picked = await lawyerService.PickNextVerifiedLawyerAsync(cancellationToken);
-            if (!picked.IsSuccess)
-            {
-                logger.LogWarning("Lease {LeaseId} lawyer {LawyerId} is no longer verified and no verified lawyer is available", request.LeaseId, previous);
-                return Result.Fail("The assigned lawyer is no longer verified and no verified lawyer is currently available. Contact an admin.");
-            }
-
-            var reassign = lease.AssignLawyer(picked.Value);
-            if (!reassign.IsSuccess)
-                return Result.Fail(reassign.Error!);
-
-            logger.LogWarning("Reassigned lease {LeaseId} lawyer {Previous} -> {Next}: previous lawyer no longer verified", request.LeaseId, previous, picked.Value);
-
-            // Persist the reassignment even though this request fails, otherwise the
-            // lease stays wedged in LegalReview with no recovery path.
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            return Result.Fail("The previously assigned lawyer is no longer verified. This lease has been reassigned and must be certified by the new assigned lawyer.");
+            logger.LogWarning(
+                "Lease {LeaseId} assigned lawyer {LawyerId} is no longer verified; certification blocked pending manual reassignment",
+                request.LeaseId,
+                lease.AssignedLawyerId);
+            return Result.Fail(
+                "The assigned lawyer is no longer verified. An admin must reassign this lease to a verified lawyer before it can be certified.");
         }
 
         if (user.Id != lease.AssignedLawyerId)

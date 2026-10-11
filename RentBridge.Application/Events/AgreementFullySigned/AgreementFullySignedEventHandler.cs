@@ -25,7 +25,8 @@ public sealed class AgreementFullySignedEventHandler(
         var subject = "Agreement fully signed";
         var body = (string firstName) =>
             $"<h3>Agreement signed</h3><p>Hello {firstName},</p>" +
-            $"<p>The tenancy agreement for lease <strong>{lease.Id}</strong> has been signed by all parties.</p>";
+            $"<p>The tenancy agreement for lease <strong>{lease.Id}</strong> has been signed by all parties. " +
+            "The final signed copy is now available to view or download from your dashboard.</p>";
 
         var landlord = await unitOfWork.Repository<User>().GetByIdAsync(lease.LandlordUserId, cancellationToken);
         if (landlord is not null)

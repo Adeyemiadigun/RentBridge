@@ -20,7 +20,8 @@ public sealed record LeaseListItem(
     LeasePartyItem? Landlord,
     LeasePartyItem? Lawyer,
     InspectionListItem? Inspection,
-    IReadOnlyList<LeaseParty> SignedParties);
+    IReadOnlyList<LeaseParty> SignedParties,
+    AgreementProgressItem? Agreement = null);
 
 public sealed record LeasePartyItem(Guid Id, string Name, string? Email);
 

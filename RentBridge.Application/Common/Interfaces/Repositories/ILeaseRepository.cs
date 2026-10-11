@@ -73,4 +73,11 @@ public interface ILeaseRepository
     Task<IReadOnlyList<Lease>> GetTrackedByIdsWithGraphAsync(
         IReadOnlyCollection<Guid> leaseIds,
         CancellationToken ct);
+
+    /// <summary>
+    /// Tracked leases whose agreement still holds files flagged for deletion, with
+    /// the agreement file collection loaded, so the cleanup sweep can purge the
+    /// superseded bytes and drop the rows.
+    /// </summary>
+    Task<IReadOnlyList<Lease>> GetWithPendingAgreementFileDeletionsAsync(CancellationToken ct);
 }

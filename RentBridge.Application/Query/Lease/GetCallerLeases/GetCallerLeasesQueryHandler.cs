@@ -116,7 +116,8 @@ public sealed class GetCallerLeasesQueryHandler(
                         r.ProposedDate,
                         string.IsNullOrWhiteSpace(r.RescheduleNote) ? null : r.RescheduleNote))
                     .FirstOrDefault(),
-                    l.Agreement.Signatures.Select(s => s.Party).ToList());
+                    l.Agreement.Signatures.Select(s => s.Party).ToList(),
+                    AgreementProgressItem.FromAgreement(l.Agreement));
         }).ToList();
 
         return Result<PagedResult<LeaseListItem>>.Ok(

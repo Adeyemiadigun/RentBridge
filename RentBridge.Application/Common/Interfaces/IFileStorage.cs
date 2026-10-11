@@ -20,4 +20,17 @@ public interface IFileStorage
     /// server-side because it is derived from the API secret.
     /// </summary>
     Task<Result<string>> GetSignedDownloadUrlAsync(string fileUrl, CancellationToken ct);
+
+    /// <summary>
+    /// Fetches the bytes of an already-uploaded asset, server-side. Used to
+    /// proxy the agreement document back to the browser so it can be rendered
+    /// inline: Cloudinary serves raw files with
+    /// <c>Content-Disposition: attachment</c> regardless of the requesting URL,
+    /// so a direct link always forces a download. Streaming through the API lets
+    /// the endpoint choose the disposition and keep the storage URL private.
+    /// </summary>
+    Task<Result<StoredFile>> DownloadAsync(string fileUrl, CancellationToken ct);
 }
+
+/// <summary>The retrieved bytes of a stored file plus its resolved content type.</summary>
+public sealed record StoredFile(byte[] Content, string ContentType, string? FileName);

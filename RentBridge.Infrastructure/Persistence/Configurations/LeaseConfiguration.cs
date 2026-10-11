@@ -45,6 +45,41 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
             a.Property(x => x.CertifyingLawyerId).HasColumnName("agreement_certifying_lawyer_id");
             a.Property(x => x.CertifiedAt).HasColumnName("agreement_certified_at");
 
+            // document-based signing flow — source document the lawyer uploads
+            a.Property(x => x.OriginalDocumentUrl).HasColumnName("agreement_original_document_url").HasMaxLength(1000);
+            a.Property(x => x.OriginalDocumentFileName).HasColumnName("agreement_original_document_file_name").HasMaxLength(400);
+            a.Property(x => x.OriginalDocumentUploadedAt).HasColumnName("agreement_original_document_uploaded_at");
+
+            // the retained final agreement (tenant-signed copy with both signatures)
+            a.Property(x => x.FinalDocumentUrl).HasColumnName("agreement_final_document_url").HasMaxLength(1000);
+            a.Property(x => x.FinalDocumentFileName).HasColumnName("agreement_final_document_file_name").HasMaxLength(400);
+            a.Property(x => x.FinalizedAt).HasColumnName("agreement_finalized_at");
+
+            // per-party review progress, stored as columns on the leases table
+            a.OwnsOne(x => x.LandlordReview, r =>
+            {
+                r.Property(p => p.Party).HasConversion<string>().HasMaxLength(20).HasColumnName("agreement_landlord_review_party");
+                r.Property(p => p.DownloadedAt).HasColumnName("agreement_landlord_review_downloaded_at");
+                r.Property(p => p.UploadedUrl).HasColumnName("agreement_landlord_review_uploaded_url").HasMaxLength(1000);
+                r.Property(p => p.UploadedFileName).HasColumnName("agreement_landlord_review_uploaded_file_name").HasMaxLength(400);
+                r.Property(p => p.UploadedAt).HasColumnName("agreement_landlord_review_uploaded_at");
+                r.Property(p => p.SubmittedForReviewAt).HasColumnName("agreement_landlord_review_submitted_at");
+                r.Property(p => p.ApprovedAt).HasColumnName("agreement_landlord_review_approved_at");
+                r.Property(p => p.ApprovedByLawyerId).HasColumnName("agreement_landlord_review_approved_by_lawyer_id");
+            });
+
+            a.OwnsOne(x => x.TenantReview, r =>
+            {
+                r.Property(p => p.Party).HasConversion<string>().HasMaxLength(20).HasColumnName("agreement_tenant_review_party");
+                r.Property(p => p.DownloadedAt).HasColumnName("agreement_tenant_review_downloaded_at");
+                r.Property(p => p.UploadedUrl).HasColumnName("agreement_tenant_review_uploaded_url").HasMaxLength(1000);
+                r.Property(p => p.UploadedFileName).HasColumnName("agreement_tenant_review_uploaded_file_name").HasMaxLength(400);
+                r.Property(p => p.UploadedAt).HasColumnName("agreement_tenant_review_uploaded_at");
+                r.Property(p => p.SubmittedForReviewAt).HasColumnName("agreement_tenant_review_submitted_at");
+                r.Property(p => p.ApprovedAt).HasColumnName("agreement_tenant_review_approved_at");
+                r.Property(p => p.ApprovedByLawyerId).HasColumnName("agreement_tenant_review_approved_by_lawyer_id");
+            });
+
             // signatures — own table (SignatureRecord is a value object;
             // EF creates the shadow FK + key automatically)
             a.OwnsMany(x => x.Signatures, s =>
@@ -56,6 +91,29 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
                 s.Property(x => x.ImageHash).HasColumnName("image_hash");
                 s.Property(x => x.SignedAt).HasColumnName("signed_at");
                 s.Property(x => x.IpAddress).HasColumnName("ip_address");
+            });
+
+            // agreement files — own table. Every upload is retained as a row so a
+            // superseded file is never overwritten; intermediate files are flagged
+            // for deletion (pending_deletion_at) and purged once finalized.
+            a.OwnsMany(x => x.Files, f =>
+            {
+                f.ToTable("agreement_files");
+                f.WithOwner().HasForeignKey("AgreementId");
+                f.HasKey(x => x.Id);
+
+                // The domain assigns Id (Guid.NewGuid). Without ValueGeneratedNever
+                // EF treats a non-default Guid as store-generated, assumes the row
+                // already exists and emits UPDATE instead of INSERT.
+                f.Property(x => x.Id).ValueGeneratedNever();
+
+                f.Property(x => x.Kind).HasConversion<string>().HasMaxLength(30);
+                f.Property(x => x.Url).HasColumnName("url").HasMaxLength(1000).IsRequired();
+                f.Property(x => x.FileName).HasColumnName("file_name").HasMaxLength(400);
+                f.Property(x => x.UploadedAt).HasColumnName("uploaded_at");
+                f.Property(x => x.UploadedByUserId).HasColumnName("uploaded_by_user_id");
+                f.Property(x => x.IsFinal).HasColumnName("is_final");
+                f.Property(x => x.PendingDeletionAt).HasColumnName("pending_deletion_at");
             });
 
             // agreement document — canonical terms snapshot, separate table

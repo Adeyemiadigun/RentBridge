@@ -52,7 +52,7 @@ public sealed class FundEscrowCommandHandler(
                 tenant.Id,
                 request.LeaseId);
             return Result<FundEscrowResponse>.Fail(
-                "Both you and the landlord must sign the agreement before payment can be made.");
+                "The agreement must be signed by both parties and approved by the lawyer before payment can be made.");
         }
 
         var existing = lease.EscrowPayments

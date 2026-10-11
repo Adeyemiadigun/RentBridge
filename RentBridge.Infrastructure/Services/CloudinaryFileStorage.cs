@@ -170,6 +170,48 @@ public sealed class CloudinaryFileStorage(
         }
     }
 
+    public async Task<Result<StoredFile>> DownloadAsync(string fileUrl, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(fileUrl))
+        {
+            return Result<StoredFile>.Fail("A file URL is required.");
+        }
+
+        var signed = await GetSignedDownloadUrlAsync(fileUrl, ct);
+        if (!signed.IsSuccess)
+        {
+            return Result<StoredFile>.Fail(signed.Error!);
+        }
+
+        try
+        {
+            using var response = await httpClient.GetAsync(signed.Value, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct);
+                return Result<StoredFile>.Fail($"Download failed ({response.StatusCode}): {Truncate(body)}");
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            var contentType = response.Content.Headers.ContentType?.MediaType;
+            if (string.IsNullOrWhiteSpace(contentType)
+                || contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+            {
+                contentType = InferContentType(fileUrl) ?? contentType;
+            }
+
+            var fileName = Path.GetFileName(new Uri(fileUrl).AbsolutePath);
+            return Result<StoredFile>.Ok(new StoredFile(
+                bytes,
+                string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType,
+                string.IsNullOrWhiteSpace(fileName) ? null : fileName));
+        }
+        catch (Exception ex)
+        {
+            return Result<StoredFile>.Fail($"Download failed: {ex.Message}");
+        }
+    }
+
     public async Task<Result> DeleteAsync(string fileUrl, CancellationToken ct)
     {
         var opts = options.Value;
@@ -180,95 +222,158 @@ public sealed class CloudinaryFileStorage(
             return Result.Fail("Cloudinary is not configured.");
         }
 
-        // Extract public_id from the Cloudinary URL
-        // URL format: https://res.cloudinary.com/{cloud_name}/{resource_type}/upload/{version}/{public_id}.{format}
-        // Or: https://res.cloudinary.com/{cloud_name}/raw/upload/{version}/{public_id}.{format}
+        // Resolve BOTH the resource type and the public id from the URL. The old
+        // implementation always posted to raw/destroy and stripped the folder
+        // (via Path.GetFileNameWithoutExtension), so it both failed for image
+        // uploads and, for raw files whose public id keeps its extension and
+        // folder, could target the wrong asset.
+        if (!TryParseCloudinaryAsset(fileUrl, out var resourceType, out var publicId))
+        {
+            return Result.Fail("Could not extract the asset reference from the URL.");
+        }
+
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var parameters = new List<KeyValuePair<string, string>>
+        {
+            new("timestamp", timestamp),
+            new("invalidate", "true"),
+            new("public_id", publicId),
+        };
+
+        var signed = string.Join("&",
+            parameters.OrderBy(p => p.Key, StringComparer.Ordinal)
+                .Select(p => $"{p.Key}={p.Value}"));
+        var signature = Sha1Hex($"{signed}{opts.ApiSecret}");
+
+        var deleteUrl = $"https://api.cloudinary.com/v1_1/{opts.CloudName}/{resourceType}/destroy";
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent(opts.ApiKey), "api_key");
+        content.Add(new StringContent(publicId), "public_id");
+        content.Add(new StringContent(signature), "signature");
+        content.Add(new StringContent(timestamp), "timestamp");
+        content.Add(new StringContent("true"), "invalidate");
+
+        var response = await httpClient.PostAsync(deleteUrl, content, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return Result.Fail($"Delete failed ({response.StatusCode}): {Truncate(body)}");
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("result", out var resultElement))
+            {
+                var resultValue = resultElement.GetString();
+                // "not found" means the asset is already gone — treat as success so
+                // a retried cleanup does not loop forever on a missing file.
+                return resultValue is "ok" or "not found"
+                    ? Result.Ok()
+                    : Result.Fail($"Delete failed: {Truncate(body)}");
+            }
+        }
+        catch (JsonException)
+        {
+            // Non-JSON 2xx response: fall through and accept it.
+        }
+
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Extracts the Cloudinary resource type and public id from a delivery URL of
+    /// the form .../{resource}/upload/[s--sig--/][v{version}/]{public_id}. For
+    /// image/video the delivery extension is dropped from the public id; for raw
+    /// files the extension is part of the public id and is kept.
+    /// </summary>
+    private static bool TryParseCloudinaryAsset(string fileUrl, out string resourceType, out string publicId)
+    {
+        resourceType = string.Empty;
+        publicId = string.Empty;
+
         try
         {
             var uri = new Uri(fileUrl);
-            var segments = uri.AbsolutePath.Split('/');
-            // Find the upload segment and get everything after it
-            int uploadIndex = Array.FindIndex(segments, s => s == "upload" || s == "raw" || s == "image" || s == "video");
-            
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length < 4)
+            {
+                return false;
+            }
+
+            var resource = segments[1];
+            if (resource is not ("image" or "raw" or "video"))
+            {
+                return false;
+            }
+
+            var uploadIndex = Array.FindIndex(segments, s => s.Equals("upload", StringComparison.OrdinalIgnoreCase));
             if (uploadIndex < 0 || uploadIndex + 1 >= segments.Length)
             {
-                return Result.Fail("Could not extract public_id from URL - invalid URL format");
-            }
-            
-            // Get everything after "upload/" as the public_id (without extension)
-            var publicIdParts = segments.Skip(uploadIndex + 1).ToArray();
-            var publicIdWithExt = string.Join("/", publicIdParts);
-            // Remove file extension
-            var publicId = Path.GetFileNameWithoutExtension(publicIdWithExt);
-            
-            // If there's a version number (starts with v), remove it
-            if (publicId.StartsWith("v") && publicId.Length > 1 && char.IsDigit(publicId[1]))
-            {
-                var versionEnd = publicId.IndexOf('/');
-                if (versionEnd > 0)
-                {
-                    publicId = publicId.Substring(versionEnd + 1);
-                }
+                return false;
             }
 
-            if (string.IsNullOrWhiteSpace(publicId))
+            var rest = segments.Skip(uploadIndex + 1).ToList();
+
+            if (rest.Count > 0 && rest[0].StartsWith("s--", StringComparison.Ordinal))
             {
-                return Result.Fail("Could not extract public_id from URL");
+                rest.RemoveAt(0);
             }
 
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-            var parameters = new List<KeyValuePair<string, string>>
+            if (rest.Count > 0 && rest[0].Length > 1 && rest[0][0] == 'v' && char.IsDigit(rest[0][1]))
             {
-                new("timestamp", timestamp),
-                new("invalidate", "true"),
-            };
-
-            var signed = string.Join("&",
-                parameters.OrderBy(p => p.Key, StringComparer.Ordinal)
-                    .Select(p => $"{p.Key}={p.Value}"));
-            var signature = Sha1Hex($"{signed}{options.Value.ApiSecret}");
-
-            var deleteUrl = $"https://api.cloudinary.com/v1_1/{options.Value.CloudName}/raw/destroy";
-            using var content = new MultipartFormDataContent();
-            content.Add(new StringContent(opts.ApiKey), "api_key");
-            content.Add(new StringContent(publicId), "public_id");
-            content.Add(new StringContent(signature), "signature");
-            content.Add(new StringContent(timestamp), "timestamp");
-            content.Add(new StringContent("true"), "invalidate");
-
-            var response = await httpClient.PostAsync(deleteUrl, content, ct);
-            var body = await response.Content.ReadAsStringAsync(ct);
-            
-            if (!response.IsSuccessStatusCode)
-            {
-                return Result.Fail($"Delete failed ({response.StatusCode}): {Truncate(body)}");
+                rest.RemoveAt(0);
             }
 
-            try
+            if (rest.Count == 0)
             {
-                using var doc = JsonDocument.Parse(body);
-                if (doc.RootElement.TryGetProperty("result", out var resultElement) &&
-                    resultElement.GetString() == "ok")
-                {
-                    return Result.Ok();
-                }
-            }
-            catch (JsonException)
-            {
-                // Ignore parse errors, check status code
+                return false;
             }
 
-            if (response.IsSuccessStatusCode)
+            var id = string.Join("/", rest);
+            if (resource is "image" or "video")
             {
-                return Result.Ok();
+                id = Path.ChangeExtension(id, null);
             }
-            
-            return Result.Fail($"Delete failed: {Truncate(body)}");
+
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return false;
+            }
+
+            resourceType = resource;
+            publicId = id;
+            return true;
         }
-        catch (Exception ex)
+        catch
         {
-            return Result.Fail($"Delete failed: {ex.Message}");
+            return false;
         }
+    }
+
+    private static string? InferContentType(string fileUrl)
+    {
+        string ext;
+        try
+        {
+            ext = Path.GetExtension(new Uri(fileUrl).AbsolutePath).ToLowerInvariant();
+        }
+        catch
+        {
+            ext = Path.GetExtension(fileUrl).ToLowerInvariant();
+        }
+
+        return ext switch
+        {
+            ".pdf" => "application/pdf",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp" => "image/webp",
+            ".doc" => "application/msword",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            _ => null,
+        };
     }
 
     private static string Sha1Hex(string input)

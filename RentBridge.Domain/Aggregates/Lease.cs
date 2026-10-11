@@ -282,6 +282,33 @@ public class Lease : Entity<Guid>
         if (AssignedLawyerId == lawyerId)
             return Result.Ok();
 
+        // The lawyer who takes a lease through legal review owns the whole
+        // process: once one is assigned, a later automatic pass (or a different
+        // property-level lawyer) must never silently reassign it mid-flow and
+        // strand the documents already uploaded against the previous lawyer.
+        if (AssignedLawyerId is not null)
+            return Result.Ok();
+
+        AssignedLawyerId = lawyerId;
+        Raise(new LawyerAssigned(Id, lawyerId));
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// Deliberate reassignment, used only for continuity/recovery paths (e.g.
+    /// snapping a lease back to the property's lawyer before legal review, or
+    /// replacing a lawyer who is no longer verified). Unlike <see cref="AssignLawyer"/>
+    /// this overrides an existing assignment, but is still refused once the
+    /// agreement is certified.
+    /// </summary>
+    public Result ReassignLawyer(Guid lawyerId)
+    {
+        if (Agreement.IsCertified)
+            return Result.Fail("Cannot change the assigned lawyer after the agreement is certified.");
+
+        if (AssignedLawyerId == lawyerId)
+            return Result.Ok();
+
         AssignedLawyerId = lawyerId;
         Raise(new LawyerAssigned(Id, lawyerId));
         return Result.Ok();
@@ -330,6 +357,129 @@ public class Lease : Entity<Guid>
         if (Agreement.IsFullySigned)
             Raise(new AgreementFullySigned(Id));
 
+        return Result.Ok();
+    }
+
+    // ---- document-based signing flow --------------------------------------
+    // Lawyer uploads the agreement → landlord downloads, signs, returns it and
+    // submits for review → lawyer approves → tenant downloads the
+    // landlord-signed file, signs, returns it and submits → lawyer approves →
+    // the lease is FullySigned and the tenant may fund escrow.
+
+    /// <summary>
+    /// The assigned lawyer uploads (or replaces) the agreement document
+    /// (LegalReview → LandlordSigning). Idempotent while the landlord has not
+    /// yet returned a signed copy.
+    /// </summary>
+    public Result<AgreementFile> UploadAgreementDocument(string url, string? fileName, Guid uploadedByUserId)
+    {
+        if (Status is not (LeaseStatus.LegalReview or LeaseStatus.LandlordSigning))
+            return Result<AgreementFile>.Fail("The agreement document can only be uploaded while the lease is in legal review or with the landlord for signing.");
+        if (AssignedLawyerId is null)
+            return Result<AgreementFile>.Fail("A lawyer must be assigned before the agreement document can be uploaded.");
+
+        var result = Agreement.UploadOriginalDocument(url, fileName, uploadedByUserId, DateTimeOffset.UtcNow);
+        if (!result.IsSuccess) return Result<AgreementFile>.Fail(result.Error!);
+
+        Status = LeaseStatus.LandlordSigning;
+        Raise(new AgreementDocumentUploaded(Id));
+        return Result<AgreementFile>.Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Records that a party opened their copy of the agreement. The caller
+    /// resolves the correct file first, so this is gated rather than merely
+    /// bookkeeping: a party cannot download a document they should not see.
+    /// </summary>
+    public Result MarkAgreementDocumentDownloaded(LeaseParty party)
+    {
+        if (string.IsNullOrWhiteSpace(Agreement.OriginalDocumentUrl))
+            return Result.Fail("The agreement document has not been uploaded yet.");
+
+        if (party == LeaseParty.Tenant && !Agreement.LandlordReview.IsApproved)
+            return Result.Fail("The landlord's signed agreement has not been approved yet.");
+
+        Agreement.ReviewFor(party).MarkDownloaded(DateTimeOffset.UtcNow);
+        return Result.Ok();
+    }
+
+    /// <summary>The party uploads their signed copy of the agreement.</summary>
+    public Result<AgreementFile> UploadSignedAgreementDocument(LeaseParty party, string url, string? fileName, Guid uploadedByUserId)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return Result<AgreementFile>.Fail("A document URL is required.");
+
+        var expected = party == LeaseParty.Tenant ? LeaseStatus.TenantSigning : LeaseStatus.LandlordSigning;
+        if (Status != expected)
+            return Result<AgreementFile>.Fail(party == LeaseParty.Tenant
+                ? "The lease is not currently awaiting the tenant's signed agreement."
+                : "The lease is not currently awaiting the landlord's signed agreement.");
+        if (party == LeaseParty.Tenant && !Agreement.LandlordReview.IsApproved)
+            return Result<AgreementFile>.Fail("The landlord's signed agreement has not been approved yet.");
+
+        var file = Agreement.RecordSignedPartyDocument(party, url, fileName, uploadedByUserId, DateTimeOffset.UtcNow);
+        return Result<AgreementFile>.Ok(file);
+    }
+
+    /// <summary>
+    /// The party sends their uploaded signed copy to the assigned lawyer for
+    /// review (LandlordSigning → LandlordDocInReview / TenantSigning →
+    /// TenantDocInReview).
+    /// </summary>
+    public Result SubmitSignedAgreementDocumentForReview(LeaseParty party)
+    {
+        var review = Agreement.ReviewFor(party);
+        if (!review.IsUploaded)
+            return Result.Fail("Upload your signed agreement before sending it for review.");
+        if (party == LeaseParty.Tenant && !Agreement.LandlordReview.IsApproved)
+            return Result.Fail("The landlord's signed agreement has not been approved yet.");
+
+        var expected = party == LeaseParty.Tenant ? LeaseStatus.TenantSigning : LeaseStatus.LandlordSigning;
+        if (review.IsSubmitted && Status is LeaseStatus.LandlordDocInReview or LeaseStatus.TenantDocInReview)
+            return Result.Ok();
+        if (Status != expected)
+            return Result.Fail("The signed agreement cannot be submitted from the current state.");
+
+        review.MarkSubmitted(DateTimeOffset.UtcNow);
+        Status = party == LeaseParty.Tenant
+            ? LeaseStatus.TenantDocInReview
+            : LeaseStatus.LandlordDocInReview;
+        Raise(new AgreementDocumentSubmittedForReview(Id, party));
+        return Result.Ok();
+    }
+
+    /// <summary>
+    /// The assigned lawyer approves a party's submitted signed document.
+    /// Approving the landlord moves the lease to TenantSigning; approving the
+    /// tenant makes the agreement FullySigned and unlocks escrow funding.
+    /// </summary>
+    public Result ApproveAgreementDocument(LeaseParty party, Guid lawyerId)
+    {
+        if (AssignedLawyerId != lawyerId)
+            return Result.Fail("Only the assigned lawyer can approve this agreement document.");
+
+        var expected = party == LeaseParty.Tenant ? LeaseStatus.TenantDocInReview : LeaseStatus.LandlordDocInReview;
+        if (Status != expected)
+            return Result.Fail(party == LeaseParty.Tenant
+                ? "The tenant's signed agreement is not awaiting review."
+                : "The landlord's signed agreement is not awaiting review.");
+
+        var result = Agreement.ApprovePartyReview(party, lawyerId, DateTimeOffset.UtcNow);
+        if (!result.IsSuccess) return result;
+
+        if (party == LeaseParty.Tenant)
+        {
+            // Approving the tenant's signed copy finalizes the flow: that copy
+            // becomes the retained agreement and the lawyer's source document
+            // plus the landlord's signed copy are released for deletion.
+            var finalize = Agreement.FinalizeWithTenantDocument(lawyerId, DateTimeOffset.UtcNow);
+            if (!finalize.IsSuccess) return finalize;
+        }
+
+        Status = party == LeaseParty.Tenant ? LeaseStatus.FullySigned : LeaseStatus.TenantSigning;
+        if (party == LeaseParty.Tenant)
+            Raise(new AgreementFullySigned(Id));
+        Raise(new AgreementDocumentApproved(Id, party));
         return Result.Ok();
     }
 
@@ -424,5 +574,8 @@ public record InspectionDeclined(Guid LeaseId) : IDomainEvent;
 public record LawyerAssigned(Guid LeaseId, Guid LawyerId) : IDomainEvent;
 public record AgreementCertified(Guid LeaseId) : IDomainEvent;
 public record AgreementFullySigned(Guid LeaseId) : IDomainEvent;
+public record AgreementDocumentUploaded(Guid LeaseId) : IDomainEvent;
+public record AgreementDocumentSubmittedForReview(Guid LeaseId, LeaseParty Party) : IDomainEvent;
+public record AgreementDocumentApproved(Guid LeaseId, LeaseParty Party) : IDomainEvent;
 public record EscrowFunded(Guid LeaseId, Guid PaymentId) : IDomainEvent;
 public record EscrowReleased(Guid LeaseId) : IDomainEvent;

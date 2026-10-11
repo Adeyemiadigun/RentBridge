@@ -268,6 +268,124 @@ public sealed class LeaseController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// The assigned lawyer uploads the agreement document (already hosted via
+    /// POST /uploads) for the landlord to download and sign.
+    /// LegalReview → LandlordSigning. Raises AgreementDocumentUploaded.
+    /// </summary>
+    [HttpPost("{leaseId:guid}/agreement/document")]
+    public async Task<IActionResult> UploadAgreementDocument(Guid leaseId, [FromBody] AgreementDocumentRequest request, CancellationToken ct)
+    {
+        var command = new UploadAgreementDocumentCommand(leaseId, request.Url, request.FileName);
+        var result = await mediator.Send(command, ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
+        }
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// A party opens their copy of the agreement. Records the download and
+    /// returns a short-lived signed URL: the landlord gets the lawyer's source
+    /// document; the tenant gets the landlord-signed document.
+    /// </summary>
+    [HttpPost("{leaseId:guid}/agreement/document/download")]
+    public async Task<IActionResult> DownloadAgreementDocument(Guid leaseId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new DownloadAgreementDocumentCommand(leaseId), ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
+        }
+
+        return Ok(new { url = result.Value });
+    }
+
+    /// <summary>
+    /// Streams the agreement document the caller may see. By default the bytes
+    /// are returned inline so the document renders in the browser instead of
+    /// being force-downloaded (Cloudinary serves raw PDFs as attachments); pass
+    /// <c>?download=true</c> to force a download. Available to the landlord,
+    /// tenant, assigned lawyer and admins.
+    /// </summary>
+    [HttpGet("{leaseId:guid}/agreement/document/content")]
+    [Produces("application/pdf", "application/octet-stream")]
+    public async Task<IActionResult> GetAgreementDocumentContent(
+        Guid leaseId,
+        [FromQuery] bool download = false,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(new GetLeaseAgreementDocumentContentQuery(leaseId), ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
+        }
+
+        var document = result.Value;
+        var fileName = string.IsNullOrWhiteSpace(document.FileName)
+            ? $"agreement-{leaseId}.pdf"
+            : document.FileName;
+
+        return download
+            ? File(document.Content, document.ContentType, fileName)
+            : File(document.Content, document.ContentType);
+    }
+
+    /// <summary>
+    /// A party uploads their signed copy of the agreement (already hosted via
+    /// POST /uploads). The party submits it for review next.
+    /// </summary>
+    [HttpPost("{leaseId:guid}/agreement/document/sign")]
+    public async Task<IActionResult> UploadSignedAgreementDocument(Guid leaseId, [FromBody] AgreementDocumentRequest request, CancellationToken ct)
+    {
+        var command = new UploadSignedAgreementDocumentCommand(leaseId, request.Url, request.FileName);
+        var result = await mediator.Send(command, ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
+        }
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// A party sends their uploaded signed agreement to the assigned lawyer for
+    /// review. LandlordSigning → LandlordDocInReview / TenantSigning →
+    /// TenantDocInReview. Raises AgreementDocumentSubmittedForReview.
+    /// </summary>
+    [HttpPost("{leaseId:guid}/agreement/document/submit")]
+    public async Task<IActionResult> SubmitAgreementDocumentForReview(Guid leaseId, CancellationToken ct)
+    {
+        var result = await mediator.Send(new SubmitAgreementDocumentForReviewCommand(leaseId), ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
+        }
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// The assigned lawyer approves a party's submitted signed document.
+    /// Approving the landlord opens the tenant's signing step; approving the
+    /// tenant fully signs the agreement and unlocks escrow funding.
+    /// Raises AgreementDocumentApproved (and AgreementFullySigned for the tenant).
+    /// </summary>
+    [HttpPost("{leaseId:guid}/agreement/document/approve")]
+    public async Task<IActionResult> ApproveAgreementDocument(Guid leaseId, [FromBody] ApproveAgreementDocumentRequest request, CancellationToken ct)
+    {
+        var command = new ApproveAgreementDocumentCommand(leaseId, request.Party);
+        var result = await mediator.Send(command, ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
+        }
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
     /// Returns the canonical tenancy agreement content (terms + pinned hash +
     /// certification/signature status). Composes the draft lazily on first view.
     /// </summary>

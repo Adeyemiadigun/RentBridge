@@ -35,7 +35,8 @@ public sealed record AgreementDetail(
     Guid? CertifyingLawyerId,
     DateTimeOffset? CertifiedAt,
     bool IsFullySigned,
-    IReadOnlyList<SignatureItem> Signatures);
+    IReadOnlyList<SignatureItem> Signatures,
+    AgreementProgressItem Progress);
 
 public sealed record AgreementDocumentItem(int Version, string ContentHash, DateTimeOffset DraftedAt);
 

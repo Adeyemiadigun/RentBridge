@@ -56,13 +56,11 @@ public sealed class BeginLegalReviewCommandHandler(
 
                 // Assign a lawyer BEFORE composing: BuildTerms reads AssignedLawyerId,
                 // so composing first drafted an agreement naming no lawyer at all.
-                // Continuity: the lawyer assigned when the property was submitted
-                // should carry the matter through legal review. If nobody is
-                // assigned yet pick (preferring the property's lawyer); if an
-                // earlier round-robin pass assigned someone else, snap the
-                // assignment back to the property's lawyer.
-                var target = lease.AssignedLawyerId;
-                if (target is null)
+                // The lawyer assigned when the property was created owns the matter
+                // for its entire life, so we NEVER reassign an existing assignment
+                // here. We only perform the first assignment when none exists yet
+                // (preferring the property's own lawyer).
+                if (lease.AssignedLawyerId is null)
                 {
                     var picked = await lawyerService.ResolveLeaseLawyerAsync(lease.ListingId, cancellationToken);
                     if (!picked.IsSuccess)
@@ -70,28 +68,13 @@ public sealed class BeginLegalReviewCommandHandler(
                         logger.LogWarning("No verified lawyer available for lease {LeaseId}: {Error}", request.LeaseId, picked.Error);
                         return Result.Fail("No verified lawyer is currently available. Contact an admin.");
                     }
-                    target = picked.Value;
-                }
-                else
-                {
-                    var propertyLawyer = await lawyerService.GetPropertyVerificationLawyerAsync(lease.ListingId, cancellationToken);
-                    if (propertyLawyer is not null && propertyLawyer != target)
-                    {
-                        logger.LogInformation(
-                            "Reusing property verification lawyer {LawyerId} for lease {LeaseId} (was {Previous}).",
-                            propertyLawyer.Value, request.LeaseId, target.Value);
-                        target = propertyLawyer;
-                    }
-                }
 
-                if (lease.AssignedLawyerId != target)
-                {
-                    var assign = lease.AssignLawyer(target!.Value);
+                    var assign = lease.AssignLawyer(picked.Value);
                     if (!assign.IsSuccess)
                     {
                         logger.LogInformation(
                             "Lease {LeaseId} cannot be assigned lawyer {LawyerId}: {Error}",
-                            request.LeaseId, target!.Value, assign.Error);
+                            request.LeaseId, picked.Value, assign.Error);
                         return Result.Fail(assign.Error!);
                     }
                 }

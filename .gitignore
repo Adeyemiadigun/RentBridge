@@ -375,3 +375,6 @@ FodyWeavers.xsd
 .env
 .env.*
 !.env.example
+
+# Local database dumps / backups — contain real PII, never commit
+db_backup/
