@@ -16,6 +16,16 @@ public interface ILeaseRepository
         CancellationToken ct);
 
     /// <summary>
+    /// Paged leases that have at least one escrow payment, newest first, with the
+    /// EscrowPayments collection loaded. Backs the admin payouts console; the caller
+    /// projects the latest payment per lease.
+    /// </summary>
+    Task<(IReadOnlyList<Lease> Items, int TotalCount)> GetPagedWithEscrowPaymentsAsync(
+        int page,
+        int pageSize,
+        CancellationToken ct);
+
+    /// <summary>
     /// Gets a lease by ID with InspectionRequests collection loaded for proper
     /// concurrency tracking of owned entities.
     /// </summary>

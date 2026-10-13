@@ -868,6 +868,15 @@ namespace RentBridge.Infrastructure.Migrations
                                 .HasColumnType("integer")
                                 .HasColumnName("payout_attempts");
 
+                            b1.Property<DateTimeOffset?>("PayoutFailedAt")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("payout_failed_at");
+
+                            b1.Property<string>("PayoutFailureReason")
+                                .HasMaxLength(300)
+                                .HasColumnType("character varying(300)")
+                                .HasColumnName("payout_failure_reason");
+
                             b1.Property<string>("PayoutReference")
                                 .HasMaxLength(100)
                                 .HasColumnType("character varying(100)")

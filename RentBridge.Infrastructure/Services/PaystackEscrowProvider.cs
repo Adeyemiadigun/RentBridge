@@ -83,6 +83,14 @@ public sealed class PaystackEscrowProvider(
         var status = data.TryGetProperty("status", out var statusEl) ? statusEl.GetString() : null;
         var amount = data.TryGetProperty("amount", out var amountEl) ? amountEl.GetInt64() : (long?)null;
 
+        // transfer.failed/reversed carry the human-readable cause in `message`
+        // (or `reason`); charge failures use `gateway_response`. Kept so the admin
+        // retry console can show the tenant/landlord why a payout bounced.
+        var reason =
+            (data.TryGetProperty("message", out var messageEl) ? messageEl.GetString() : null)
+            ?? (data.TryGetProperty("reason", out var reasonEl) ? reasonEl.GetString() : null)
+            ?? (data.TryGetProperty("gateway_response", out var gatewayEl) ? gatewayEl.GetString() : null);
+
         if (string.IsNullOrWhiteSpace(reference))
         {
             return Result<PaymentNotification>.Fail("Webhook payload has no payment reference.");
@@ -105,7 +113,7 @@ public sealed class PaystackEscrowProvider(
         decimal? paidMinor = amount is null ? null : FromMinorUnits(amount.Value);
 
         return Result<PaymentNotification>.Ok(
-            new PaymentNotification(reference, paymentStatus, paidMinor, kind));
+            new PaymentNotification(reference, paymentStatus, paidMinor, kind, reason));
     }
 
     public async Task<Result<TransferResult>> TransferSplitAsync(

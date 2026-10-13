@@ -157,6 +157,8 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
             p.Property(x => x.PayoutReference).HasColumnName("payout_reference").HasMaxLength(100);
             p.Property(x => x.PayoutAttempts).HasColumnName("payout_attempts");
             p.Property(x => x.PayoutStartedAt).HasColumnName("payout_started_at");
+            p.Property(x => x.PayoutFailureReason).HasColumnName("payout_failure_reason").HasMaxLength(300);
+            p.Property(x => x.PayoutFailedAt).HasColumnName("payout_failed_at");
 
             p.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
 

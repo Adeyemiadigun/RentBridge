@@ -49,13 +49,13 @@ public sealed class ReleaseEscrowCommandHandler(
             return Result.Ok();
         }
 
-        // Give an admin-driven retry a fresh attempt budget.
+        // The attempt counter is intentionally NOT reset: each admin retry is a
+        // new attempt, and the counter is the audit trail of how many were made.
         var payment = lease.EscrowPayments
             .OrderByDescending(p => p.CreatedAt)
             .FirstOrDefault(p => p.Status is EscrowStatus.Funded
                 or EscrowStatus.Releasing
                 or EscrowStatus.PayoutFailed);
-        payment?.ResetPayoutAttempts();
 
         var result = await releaseService.TryAutoReleaseAsync(lease.Id, cancellationToken);
 

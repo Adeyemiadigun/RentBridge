@@ -23,6 +23,8 @@ public class EscrowPayment
     public string? PayoutReference { get; private set; }
     public int PayoutAttempts { get; private set; }
     public DateTimeOffset? PayoutStartedAt { get; private set; }
+    public string? PayoutFailureReason { get; private set; }
+    public DateTimeOffset? PayoutFailedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
     private EscrowPayment() { }
@@ -70,22 +72,28 @@ public class EscrowPayment
         return Result.Ok();
     }
 
-    public Result MarkPayoutFailed()
+    public Result MarkPayoutFailed(string? reason = null)
     {
         if (Status is not (EscrowStatus.Releasing or EscrowStatus.Funded or EscrowStatus.PayoutFailed))
             return Result.Fail("Only releasing escrow can be marked payout-failed.");
         Status = EscrowStatus.PayoutFailed;
+        PayoutFailedAt = DateTimeOffset.UtcNow;
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            var trimmed = reason.Trim();
+            PayoutFailureReason = trimmed.Length > 300 ? trimmed[..300] : trimmed;
+        }
         return Result.Ok();
     }
 
     public void IncrementPayoutAttempt() => PayoutAttempts++;
 
-    public void ResetPayoutAttempts() => PayoutAttempts = 0;
-
     public Result MarkReleased()
     {
         if (Status != EscrowStatus.Releasing) return Result.Fail("Escrow must be releasing before released.");
         Status = EscrowStatus.Released;
+        PayoutFailureReason = null;
+        PayoutFailedAt = null;
         return Result.Ok();
     }
 

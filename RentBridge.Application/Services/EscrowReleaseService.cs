@@ -13,20 +13,17 @@ namespace RentBridge.Application.Services;
 /// <summary>
 /// Automatic escrow payout. Payout is initiated as soon as escrow is funded and
 /// identity, inspection, and legal gates have all passed — no landlord action.
-/// A failed transfer is retried a bounded number of times, the owner is
-/// notified, and an admin can retry/force from the audit-logged endpoint.
+/// A failed transfer is NOT retried automatically: it is recorded (with the
+/// provider's reason), the owner is notified, and an admin retries it manually
+/// from the admin payouts console.
 /// </summary>
 public sealed class EscrowReleaseService(
     IUnitOfWork unitOfWork,
     IEscrowProvider escrowProvider,
     IEmailService emailService,
-    IBackgroundJobDispatcher backgroundJobs,
     ILedgerService ledgerService,
     ILogger<EscrowReleaseService> logger) : IEscrowReleaseService
 {
-    private const int MaxAutoAttempts = 2;
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromMinutes(5);
-
     public async Task<Result> TryAutoReleaseAsync(Guid leaseId, CancellationToken cancellationToken)
     {
         var lease = await unitOfWork.Repository<LeaseAggregate>()
@@ -132,7 +129,7 @@ public sealed class EscrowReleaseService(
             var begin = lease.BeginRelease();
             if (!begin.IsSuccess)
             {
-                await RecordPayoutFailureAsync(lease, payment, cancellationToken);
+                await RecordPayoutFailureAsync(lease, payment, begin.Error, cancellationToken);
                 return Result.Fail(begin.Error!);
             }
         }
@@ -151,7 +148,7 @@ public sealed class EscrowReleaseService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Payout transfer threw for lease {LeaseId}; recording failure", leaseId);
-            await RecordPayoutFailureAsync(lease, payment, cancellationToken);
+            await RecordPayoutFailureAsync(lease, payment, ex.Message, cancellationToken);
             return Result.Fail("Payout transfer failed unexpectedly.");
         }
 
@@ -160,7 +157,7 @@ public sealed class EscrowReleaseService(
             logger.LogWarning(
                 "Payout transfer rejected for lease {LeaseId} (payment {Reference}, attempt {Attempt}): {Error}",
                 leaseId, payment.Reference, payment.PayoutAttempts + 1, transfer.Error);
-            await RecordPayoutFailureAsync(lease, payment, cancellationToken);
+            await RecordPayoutFailureAsync(lease, payment, transfer.Error, cancellationToken);
             return Result.Fail(transfer.Error!);
         }
 
@@ -191,7 +188,7 @@ public sealed class EscrowReleaseService(
 
     public Task RetryAutoReleaseAsync(Guid leaseId) => TryAutoReleaseAsync(leaseId, CancellationToken.None);
 
-    public async Task HandlePayoutFailureAsync(Guid leaseId, CancellationToken cancellationToken)
+    public async Task HandlePayoutFailureAsync(Guid leaseId, string? reason, CancellationToken cancellationToken)
     {
         var lease = await unitOfWork.Repository<LeaseAggregate>()
             .FirstOrDefault(l => l.Id == leaseId, cancellationToken);
@@ -210,13 +207,13 @@ public sealed class EscrowReleaseService(
             return;
         }
 
-        await RecordPayoutFailureAsync(lease, payment, cancellationToken);
+        await RecordPayoutFailureAsync(lease, payment, reason, cancellationToken);
     }
 
     public async Task ReconcileStuckPayoutsAsync()
     {
         var cancellationToken = CancellationToken.None;
-        var cutoff = DateTimeOffset.UtcNow - RetryDelay;
+        var cutoff = DateTimeOffset.UtcNow - TimeSpan.FromMinutes(5);
 
         // One tracked, server-side query: leases with a payout stuck in Releasing.
         var leases = await unitOfWork.Leases.GetWithStuckPayoutsAsync(cutoff, cancellationToken);
@@ -237,7 +234,7 @@ public sealed class EscrowReleaseService(
             if (string.IsNullOrWhiteSpace(payment.PayoutReference))
             {
                 logger.LogWarning("Stuck payout for lease {LeaseId} has no reference; recording failure", lease.Id);
-                await RecordPayoutFailureAsync(lease, payment, cancellationToken);
+                await RecordPayoutFailureAsync(lease, payment, "Transfer reference was not recorded.", cancellationToken);
                 continue;
             }
 
@@ -259,7 +256,8 @@ public sealed class EscrowReleaseService(
                 // failure/retry path so a retry re-claims and sends it.
                 logger.LogWarning("Stuck payout {Reference} not found at provider; re-driving (lease {LeaseId})",
                     payment.PayoutReference, lease.Id);
-                await RecordPayoutFailureAsync(lease, payment, cancellationToken);
+                await RecordPayoutFailureAsync(lease, payment,
+                    "The payout was never confirmed by the payment provider.", cancellationToken);
                 continue;
             }
 
@@ -300,7 +298,8 @@ public sealed class EscrowReleaseService(
                 case "failed":
                 case "reversed":
                 case "abandoned":
-                    await RecordPayoutFailureAsync(lease, payment, cancellationToken);
+                    await RecordPayoutFailureAsync(lease, payment,
+                        $"The payment provider reported the transfer as {lookup.Value.Status}.", cancellationToken);
                     break;
 
                 default:
@@ -315,10 +314,13 @@ public sealed class EscrowReleaseService(
     private async Task RecordPayoutFailureAsync(
         LeaseAggregate lease,
         EscrowPayment payment,
+        string? reason,
         CancellationToken cancellationToken)
     {
+        // The attempt counter is the only thing that grows across retries — the
+        // payout amount is unchanged, so no money is duplicated.
         payment.IncrementPayoutAttempt();
-        var failed = payment.MarkPayoutFailed();
+        var failed = payment.MarkPayoutFailed(reason);
         if (!failed.IsSuccess)
         {
             logger.LogWarning("Could not mark payment {Reference} payout-failed: {Error}", payment.Reference, failed.Error);
@@ -331,18 +333,9 @@ public sealed class EscrowReleaseService(
 
         await NotifyPayoutFailureAsync(lease, payment, cancellationToken);
 
-        if (payment.Status == EscrowStatus.PayoutFailed && payment.PayoutAttempts < MaxAutoAttempts)
-        {
-            backgroundJobs.Schedule<IEscrowReleaseService>(
-                s => s.RetryAutoReleaseAsync(lease.Id),
-                RetryDelay);
-            logger.LogInformation("Scheduled automatic payout retry for lease {LeaseId} (attempt {Attempt})",
-                lease.Id, payment.PayoutAttempts + 1);
-        }
-        else
-        {
-            logger.LogWarning("Automatic payout retries exhausted for lease {LeaseId}; admin retry required", lease.Id);
-        }
+        logger.LogWarning(
+            "Payout for lease {LeaseId} failed on attempt {Attempt}; awaiting manual admin retry",
+            lease.Id, payment.PayoutAttempts);
     }
 
     private async Task NotifyPayoutFailureAsync(
@@ -359,14 +352,12 @@ public sealed class EscrowReleaseService(
             return;
         }
 
-        var willRetry = payment.PayoutAttempts < MaxAutoAttempts;
         var subject = "Escrow payout could not be completed";
         var body =
             $"<h3>Escrow payout could not be completed</h3><p>Hello {landlord.FirstName},</p>" +
-            $"<p>The automatic payout for lease <strong>{lease.Id}</strong> failed on attempt {payment.PayoutAttempts}.</p>" +
-            (willRetry
-                ? "<p>We will retry automatically. If the problem persists, please review your payout bank account.</p>"
-                : "<p>Automatic retries are exhausted. Please review your payout bank account, or contact support so an admin can retry the payout.</p>");
+            $"<p>The payout for lease <strong>{lease.Id}</strong> failed on attempt {payment.PayoutAttempts}.</p>" +
+            "<p>The money is still safely held in escrow. Please review your payout bank account; " +
+            "once it is correct, contact support and an admin will retry the payout for you.</p>";
 
         await emailService.SendEmailAsync(landlord.Email.Value, subject, body, cancellationToken);
     }

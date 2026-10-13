@@ -27,6 +27,25 @@ public class LeaseRepository : ILeaseRepository
             .ToListAsync(ct);
     }
 
+    public async Task<(IReadOnlyList<Lease> Items, int TotalCount)> GetPagedWithEscrowPaymentsAsync(
+        int page,
+        int pageSize,
+        CancellationToken ct)
+    {
+        var query = _context.Set<Lease>()
+            .Where(l => l.EscrowPayments.Any());
+
+        var total = await query.CountAsync(ct);
+
+        var items = await query
+            .OrderByDescending(l => l.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, total);
+    }
+
     /// <summary>
     /// Loads a tracked lease with every owned/related collection that the agreement
     /// and escrow paths read: the agreement signatures, the agreement document, and

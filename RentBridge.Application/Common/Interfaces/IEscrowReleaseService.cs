@@ -26,17 +26,19 @@ public interface IEscrowReleaseService
     Task<Result> TryAutoReleaseAsync(Guid leaseId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Job-scheduler-friendly entry point (single serializable argument) used
-    /// for bounded automatic retries after a failed payout.
+    /// Retry entry point used by the admin payouts console. Same gates and
+    /// idempotency rules as <see cref="TryAutoReleaseAsync"/>; the attempt counter
+    /// is incremented, never reset.
     /// </summary>
     Task RetryAutoReleaseAsync(Guid leaseId);
 
     /// <summary>
     /// Records an out-of-band payout failure (e.g. a transfer.failed webhook):
-    /// marks the payment payout-failed, notifies the owner, and schedules a
-    /// bounded automatic retry. No-op if the payment is unknown or already done.
+    /// marks the payment payout-failed with the provider's <paramref name="reason"/>,
+    /// notifies the owner, and leaves the payout awaiting a manual admin retry.
+    /// It is never retried automatically.
     /// </summary>
-    Task HandlePayoutFailureAsync(Guid leaseId, CancellationToken cancellationToken);
+    Task HandlePayoutFailureAsync(Guid leaseId, string? reason, CancellationToken cancellationToken);
 
     /// <summary>
     /// Reconciliation sweep for payouts that were claimed (Releasing) but never

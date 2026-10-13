@@ -16,7 +16,8 @@ public sealed record PaymentNotification(
     string Reference,
     PaymentStatus Status,
     decimal? AmountPaid,
-    PaymentEventKind Kind = PaymentEventKind.ChargeSuccess);
+    PaymentEventKind Kind = PaymentEventKind.ChargeSuccess,
+    string? Reason = null);
 
 public enum PaymentStatus
 {

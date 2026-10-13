@@ -59,16 +59,18 @@ public sealed class LedgerService(IUnitOfWork unitOfWork) : ILedgerService
 
     public Task RecordPayoutFailureAsync(Lease lease, EscrowPayment payment, CancellationToken cancellationToken)
     {
-        var amount = payment.Split?.LandlordPayout.Amount ?? payment.GrossAmount.Amount;
-        var currency = payment.Split?.LandlordPayout.Currency ?? payment.GrossAmount.Currency;
-
+        // A failed payout moves no money — the landlord's funds are still held in
+        // escrow. The line is recorded with a ZERO amount on purpose: recording the
+        // payout amount made every retry look like fresh money (₦6.30 × attempts)
+        // and double-counted the same funds. The pending amount lives on the escrow
+        // payment; this line is only an attempt marker (attempt number + reason).
         return AddIfAbsentAsync(
             lease,
             payment,
             TransactionType.PayoutFailed,
             TransactionDirection.Info,
-            amount,
-            currency,
+            amount: 0m,
+            payment.GrossAmount.Currency,
             EscrowStatus.PayoutFailed,
             attempt: payment.PayoutAttempts,
             description: $"Landlord payout attempt {payment.PayoutAttempts} failed",

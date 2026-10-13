@@ -46,7 +46,7 @@ public sealed class HandlePaymentWebhookCommandHandler(
         {
             PaymentEventKind.TransferSuccess => await HandleTransferSuccessAsync(lease, payment, cancellationToken),
             PaymentEventKind.TransferFailed or PaymentEventKind.TransferReversed
-                => await HandleTransferFailureAsync(lease, payment, notification.Kind, cancellationToken),
+                => await HandleTransferFailureAsync(lease, payment, notification.Kind, notification.Reason, cancellationToken),
             _ => await HandleChargeAsync(payment, notification, cancellationToken),
         };
     }
@@ -116,15 +116,17 @@ public sealed class HandlePaymentWebhookCommandHandler(
         return Result.Ok();
     }
 
-    /// <summary>The payout failed — notify the owner and schedule a retry.</summary>
+    /// <summary>The payout failed — record the reason and notify the owner; an admin retries manually.</summary>
     private async Task<Result> HandleTransferFailureAsync(
         LeaseAggregate lease,
         EscrowPayment payment,
         PaymentEventKind kind,
+        string? reason,
         CancellationToken cancellationToken)
     {
-        logger.LogWarning("{Kind} for payment {Reference} on lease {LeaseId}", kind, payment.Reference, lease.Id);
-        await releaseService.HandlePayoutFailureAsync(lease.Id, cancellationToken);
+        logger.LogWarning("{Kind} for payment {Reference} on lease {LeaseId}: {Reason}",
+            kind, payment.Reference, lease.Id, reason ?? "no reason supplied");
+        await releaseService.HandlePayoutFailureAsync(lease.Id, reason, cancellationToken);
         return Result.Ok();
     }
 }

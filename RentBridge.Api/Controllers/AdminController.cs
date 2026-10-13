@@ -130,6 +130,27 @@ public sealed class AdminController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Payouts console: paged escrow payouts with status, attempt count, the
+    /// last failure reason, and whether the payout can be retried. Filter by
+    /// escrow status (e.g. PayoutFailed for the retry queue).
+    /// </summary>
+    [HttpGet("payouts")]
+    public async Task<IActionResult> GetPayouts(
+        [FromQuery] EscrowStatus? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var result = await mediator.Send(new GetAdminPayoutsQuery(status, page, pageSize), ct);
+        if (result.IsSuccess is false)
+        {
+            return result.ToErrorResponse();
+        }
+
+        return Ok(result.Value);
+    }
+
+    /// <summary>
     /// Listing moderation queue: paged listings with owner and property
     /// verification state. Filter by status if needed.
     /// </summary>
