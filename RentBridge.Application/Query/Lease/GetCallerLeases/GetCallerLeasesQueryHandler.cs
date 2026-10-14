@@ -44,6 +44,7 @@ public sealed class GetCallerLeasesQueryHandler(
             ascending: false,
             cancellationToken,
             l => l.InspectionRequests,
+            l => l.EscrowPayments,
             l => l.Agreement.Signatures);
 
         var leases = paged.Items;
@@ -93,6 +94,23 @@ public sealed class GetCallerLeasesQueryHandler(
             {
                 var listing = listingsById[l.ListingId];
                 var property = propertiesById[listing.PropertyId];
+
+                // One row per lease: surface only the latest escrow payment, so a
+                // landlord's payments view never grows a row per admin retry.
+                var escrow = l.EscrowPayments
+                    .OrderByDescending(p => p.CreatedAt)
+                    .FirstOrDefault();
+                var escrowSummary = escrow is null
+                    ? null
+                    : new LeaseEscrowSummary(
+                        escrow.GrossAmount.Amount,
+                        escrow.GrossAmount.Currency,
+                        escrow.Status.ToString(),
+                        escrow.Split?.LandlordPayout.Amount ?? escrow.GrossAmount.Amount,
+                        escrow.PayoutAttempts,
+                        escrow.PayoutFailureReason,
+                        escrow.PayoutFailedAt ?? escrow.PayoutStartedAt ?? escrow.CreatedAt);
+
                 return new LeaseListItem(
                     l.Id,
                     l.ListingId,
@@ -117,7 +135,8 @@ public sealed class GetCallerLeasesQueryHandler(
                         string.IsNullOrWhiteSpace(r.RescheduleNote) ? null : r.RescheduleNote))
                     .FirstOrDefault(),
                     l.Agreement.Signatures.Select(s => s.Party).ToList(),
-                    AgreementProgressItem.FromAgreement(l.Agreement));
+                    AgreementProgressItem.FromAgreement(l.Agreement),
+                    escrowSummary);
         }).ToList();
 
         return Result<PagedResult<LeaseListItem>>.Ok(

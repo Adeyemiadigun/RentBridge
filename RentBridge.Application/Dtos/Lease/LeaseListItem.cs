@@ -21,7 +21,24 @@ public sealed record LeaseListItem(
     LeasePartyItem? Lawyer,
     InspectionListItem? Inspection,
     IReadOnlyList<LeaseParty> SignedParties,
-    AgreementProgressItem? Agreement = null);
+    AgreementProgressItem? Agreement = null,
+    LeaseEscrowSummary? Escrow = null);
+
+/// <summary>
+/// The latest escrow payment on the lease, flattened for dashboards so a
+/// payments view can render one row per lease (tenant + amount + status)
+/// without a second request or a ledger that grows a line per payout retry.
+/// Amount is the gross the tenant paid; PayoutAmount is what the landlord
+/// receives after fees.
+/// </summary>
+public sealed record LeaseEscrowSummary(
+    decimal Amount,
+    string Currency,
+    string Status,
+    decimal PayoutAmount,
+    int PayoutAttempts,
+    string? FailureReason,
+    DateTimeOffset? OccurredAt);
 
 public sealed record LeasePartyItem(Guid Id, string Name, string? Email);
 
