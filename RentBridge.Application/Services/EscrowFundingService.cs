@@ -70,8 +70,8 @@ public sealed class EscrowFundingService(
         logger.LogInformation("Escrow payment {Reference} confirmed paid", reference);
 
         // The single automatic payout trigger: money is now confirmed received.
-        // If every gate has already passed the payout runs immediately; otherwise
-        // the bounded retry job (RetryAutoReleaseAsync) picks it up.
+        // If every gate has already passed the payout runs immediately; otherwise it
+        // stays held until the gates pass and an admin retries it manually.
         var release = await releaseService.TryAutoReleaseAsync(lease.Id, cancellationToken);
         if (!release.IsSuccess)
         {

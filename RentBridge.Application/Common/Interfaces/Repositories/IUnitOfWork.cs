@@ -30,6 +30,16 @@ namespace RentBridge.Application.Common.Interfaces.Repositories
         void MarkAsAdded<T>(T entity) where T : class;
 
         /// <summary>
+        /// Accepts the entity's current values as the persisted baseline so the next
+        /// SaveChanges only writes what changes afterwards. Required after a raw-SQL
+        /// update (e.g. <see cref="TryClaimEscrowPayoutAsync"/>) mutates a tracked row
+        /// behind EF's back: without it, a value that is changed in memory and then
+        /// changed back to its pre-claim value compares equal to the stale OriginalValue
+        /// and is silently omitted from the UPDATE, leaving the DB row on the raw-SQL value.
+        /// </summary>
+        void AcceptChanges(object entity);
+
+        /// <summary>
         /// Clears the EF Core change tracker to force fresh entity loads on retry.
         /// </summary>
         void ClearChangeTracker();

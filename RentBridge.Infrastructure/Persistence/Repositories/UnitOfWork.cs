@@ -62,6 +62,12 @@ namespace RentBridge.Infrastructure.Persistence.Repositories
             _context.ChangeTracker.Clear();
         }
 
+        public void AcceptChanges(object entity)
+        {
+            var entry = _context.Entry(entity);
+            entry.OriginalValues.SetValues(entry.CurrentValues);
+        }
+
         public async Task<bool> TryClaimEscrowPayoutAsync(
             Guid escrowPaymentId,
             string payoutReference,

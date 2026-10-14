@@ -122,6 +122,14 @@ public sealed class EscrowReleaseService(
             return Result.Fail(releasing.Error!);
         }
 
+        // The raw-SQL claim above wrote Releasing/payout_reference/payout_started_at
+        // straight to the row, so the tracker's OriginalValues still hold the pre-claim
+        // state. Accept the mirrored values as the baseline; otherwise a later
+        // MarkPayoutFailed on a retry (Funded→…→PayoutFailed, or PayoutFailed→…→PayoutFailed)
+        // compares equal to the stale original and Status is dropped from the UPDATE,
+        // leaving the row stuck on Releasing.
+        unitOfWork.AcceptChanges(payment);
+
         // BeginRelease only transitions FundedInEscrow → Releasing; on a retry the
         // lease is already Releasing, so skip it.
         if (lease.Status == LeaseStatus.FundedInEscrow)
