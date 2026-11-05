@@ -2,9 +2,12 @@ using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using RentBridge.Application.Command.Auth;
 using RentBridge.Application.Command.RegisterUser;
 using RentBridge.Application.Query.Auth;
+using RentBridge.Api.Hangfire;
+using RentBridge.Infrastructure.Services;
 
 namespace RentBridge.Api.Controllers;
 
@@ -15,7 +18,9 @@ namespace RentBridge.Api.Controllers;
 [Produces("application/json")]
 [ProducesResponseType(StatusCodes.Status200OK)]
 [ProducesResponseType(StatusCodes.Status400BadRequest)]
-public sealed class AuthController(IMediator mediator) : ControllerBase
+public sealed class AuthController(
+    IMediator mediator,
+    IOptions<JwtOptions> jwtOptions) : ControllerBase
 {
     /// <summary>
     /// Registers a new user. Pass the role as one of: Landlord, Tenant,
@@ -44,6 +49,11 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
             return Unauthorized(new { error = result.Error });
         }
 
+        // Browser flow for the Hangfire dashboard: the cookie carries the access
+        // JWT scoped to /hangfire only, so it is never attached to API calls.
+        // The dashboard filter additionally requires an Admin role claim, so
+        // this cookie is inert for non-admins.
+        SetDashboardCookie(result.Value.Token);
         return Ok(result.Value);
     }
 
@@ -57,6 +67,8 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
             return Unauthorized(new { error = result.Error });
         }
 
+        // Keep an admin's dashboard session alive across token refreshes.
+        SetDashboardCookie(result.Value.Token);
         return Ok(result.Value);
     }
 
@@ -69,6 +81,12 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
             return BadRequest(new { error = result.Error });
         }
 
+        // Drop the dashboard cookie if present; the JWT itself remains valid
+        // until expiry (standard stateless-jwt trade-off), so the cookie
+        // expiry keeps the blast radius short.
+        Response.Cookies.Delete(
+            HangfireDashboardCookie.Name,
+            new CookieOptions { Path = "/hangfire", SameSite = SameSiteMode.Lax });
         return Ok(new { success = true });
     }
 
@@ -88,5 +106,23 @@ public sealed class AuthController(IMediator mediator) : ControllerBase
         }
 
         return Ok(result.Value);
+    }
+
+    private void SetDashboardCookie(string token)
+    {
+        Response.Cookies.Append(HangfireDashboardCookie.Name, token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            // Not Strict: admins clicking over from a different-origin admin
+            // panel should still carry it on a top-level navigation.
+            SameSite = SameSiteMode.Lax,
+            // Scoped so the browser only sends it for the dashboard itself.
+            Path = "/hangfire",
+            // Track the access-token lifetime so the cookie disappears when
+            // the token would fail validation anyway.
+            MaxAge = TimeSpan.FromMinutes(jwtOptions.Value.ExpirationInMinutes),
+            IsEssential = true,
+        });
     }
 }

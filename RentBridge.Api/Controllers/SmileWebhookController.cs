@@ -12,6 +12,7 @@ namespace RentBridge.Api.Controllers;
 [Route("api/webhooks/smile")]
 [Produces("application/json")]
 [ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
 public class SmileWebhookController(
     IMediator mediator,
     ISmileSignatureValidator signatureValidator,
@@ -30,13 +31,13 @@ public class SmileWebhookController(
             !Request.Headers.TryGetValue("Response-Timestamp", out var timestamp))
         {
             logger.LogWarning("Smile webhook missing Response-Signature/Response-Timestamp headers.");
-            return Ok(new { acknowledged = true });
+            return Unauthorized(new { acknowledged = false });
         }
 
         if (!signatureValidator.IsValid(signature.ToString(), timestamp.ToString()))
         {
             logger.LogWarning("Smile webhook signature verification failed.");
-            return Ok(new { acknowledged = true });
+            return Unauthorized(new { acknowledged = false });
         }
 
         // 3. Deserialize the payload. Our DTO is tolerant of the real shape.

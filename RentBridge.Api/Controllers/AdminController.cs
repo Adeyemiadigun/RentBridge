@@ -11,10 +11,11 @@ using RentBridge.Domain.Enums;
 namespace RentBridge.Api.Controllers;
 
 /// <summary>
-/// Admin-only administration endpoints. Authorization is enforced at the
-/// handler level (current-user role checks) like the rest of the API.
+/// Admin-only administration endpoints. Authenticated as JWT and restricted to
+/// the Admin role here at the edge; handlers re-check the caller's role as a
+/// second layer of defense.
 /// </summary>
-[Authorize]
+[Authorize(Roles = "Admin")]
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/admin")]

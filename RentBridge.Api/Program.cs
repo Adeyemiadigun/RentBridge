@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using RentBridge.Api.Hangfire;
 using RentBridge.Api.Middleware;
+using RentBridge.Api.Security;
 using RentBridge.Api.Swagger;
 using RentBridge.Api.Versioning;
 using RentBridge.Application;
@@ -100,19 +101,26 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtOptions.Issuer,
-        ValidAudience = jwtOptions.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey))
-    };
+    options.TokenValidationParameters = TokenValidationParametersFactory.Create(jwtOptions);
 });
 
 builder.Services.AddAuthorization();
+
+// Cross-origin static SPA (Render): the web client lives on its own domain,
+// so credentialed CORS is required for it to (a) call the API at all in some
+// setups and (b) receive the /hangfire-scoped dashboard cookie set on
+// login/refresh. Origins come from configuration — exact origins only (Set-Cookie
+// with credentials cannot ship against a wildcard origin). Example value:
+// Cors__AllowedOrigins=https://your-frontend.onrender.com
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (corsOrigins.Length > 0)
+{
+    builder.Services.AddCors(o => o.AddPolicy("Spa", p => p
+        .WithOrigins(corsOrigins)
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials()));
+}
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddTransient<IConfigureOptions<Swashbuckle.AspNetCore.SwaggerGen.SwaggerGenOptions>, ConfigureSwaggerOptions>();
@@ -191,27 +199,33 @@ using (var seedScope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        foreach (var description in app.DescribeApiVersions())
+        {
+            c.SwaggerEndpoint(
+                $"/swagger/{description.GroupName}/swagger.json",
+                $"Rent Bridge API {description.GroupName.ToUpperInvariant()}");
+        }
+    });
 }
 
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    foreach (var description in app.DescribeApiVersions())
-    {
-        c.SwaggerEndpoint(
-            $"/swagger/{description.GroupName}/swagger.json",
-            $"Rent Bridge API {description.GroupName.ToUpperInvariant()}");
-    }
-});
-
 app.UseHttpsRedirection();
+
+// Preflight + allow-origin handling for the configured SPA origins (no-op
+// unless Cors:AllowedOrigins is set). Must precede UseAuthentication.
+if (corsOrigins.Length > 0)
+{
+    app.UseCors("Spa");
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
-    Authorization = new[] { new DevelopmentOnlyDashboardAuthorizationFilter() }
+    Authorization = new[] { new AdminDashboardAuthorizationFilter() }
 });
 
 app.UseMiddleware<ExceptionHandlerMiddleware>();
