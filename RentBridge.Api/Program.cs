@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using RentBridge.Api.Hangfire;
 using RentBridge.Api.Middleware;
+using RentBridge.Api.Security;
 using RentBridge.Api.Swagger;
 using RentBridge.Api.Versioning;
 using RentBridge.Application;
@@ -65,7 +66,10 @@ builder.Services.AddCors(options => options.AddPolicy(
     policy => policy
         .WithOrigins(corsOrigins)
         .AllowAnyHeader()
-        .AllowAnyMethod()));
+        .AllowAnyMethod()
+        // Required so the browser may PERSIST Set-Cookie from cross-origin
+        // login/refresh responses (the /hangfire-scoped dashboard cookie).
+        .AllowCredentials()));
 
 // URL-segment versioning: /api/v1/.... Unversioned requests are assumed v1,
 // and clients can also pass ?api-version= or the X-Version header.
@@ -113,16 +117,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtOptions.Issuer,
-        ValidAudience = jwtOptions.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey))
-    };
+    options.TokenValidationParameters = TokenValidationParametersFactory.Create(jwtOptions);
 });
 
 builder.Services.AddAuthorization();
@@ -204,18 +199,17 @@ using (var seedScope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-}
-
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    foreach (var description in app.DescribeApiVersions())
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint(
-            $"/swagger/{description.GroupName}/swagger.json",
-            $"Rent Bridge API {description.GroupName.ToUpperInvariant()}");
-    }
-});
+        foreach (var description in app.DescribeApiVersions())
+        {
+            c.SwaggerEndpoint(
+                $"/swagger/{description.GroupName}/swagger.json",
+                $"Rent Bridge API {description.GroupName.ToUpperInvariant()}");
+        }
+    });
+}
 
 app.UseHttpsRedirection();
 
@@ -227,7 +221,7 @@ app.UseAuthorization();
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
-    Authorization = new[] { new DevelopmentOnlyDashboardAuthorizationFilter() }
+    Authorization = new[] { new AdminDashboardAuthorizationFilter() }
 });
 
 app.UseMiddleware<ExceptionHandlerMiddleware>();
