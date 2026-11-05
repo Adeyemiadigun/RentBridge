@@ -35,7 +35,7 @@ public sealed class GetAdminDashboardQueryHandler(
         var users = unitOfWork.Repository<UserAggregate>();
         // Single GROUP BY per entity — no entity (and no owned-collection)
         // hydration. Absent buckets mean zero; Total is the bucket sum.
-        var roleCounts = (await users.CountByAsync(null, u => u.Role && u.Role != UserRole.Admin, cancellationToken))
+        var roleCounts = (await users.CountByAsync(null, u => u.Role != UserRole.Admin, cancellationToken))
             .ToDictionary(r => r.Key, r => r.Count);
         var userSummary = new UserSummary(
             Total: roleCounts.Values.Sum(),
