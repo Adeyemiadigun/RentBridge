@@ -4,6 +4,7 @@ using RentBridge.Application.Common.Interfaces;
 using RentBridge.Application.Common.Interfaces.Repositories;
 using RentBridge.Domain.Aggregates;
 using RentBridge.Domain.Common;
+using RentBridge.Domain.Enums;
 using RentBridge.Infrastructure.Persistence.Repositories;
 using System;
 using System.Collections.Generic;
@@ -41,7 +42,13 @@ namespace RentBridge.Infrastructure.Services
                 logger.LogInformation("User not found");
                 return Result<User>.Fail("User not found");
             }
-            if (!user.IdentityVerified && isIdentityVerified)
+            // Staff exemption: admins never complete consumer KYC (there is no
+            // identity flow for them and the bootstrap does not create one), so
+            // requiring IdentityVerified would block every admin operation —
+            // dashboards, lawyer review actions, escrow release — behind an
+            // impossible gate. Privilege is already enforced by the admin-role
+            // checks that follow this call in each handler.
+            if (!user.IdentityVerified && isIdentityVerified && user.Role != UserRole.Admin)
             {
                 logger.LogInformation("User identity not verified");
                 return Result<User>.Fail("User identity not verified");
